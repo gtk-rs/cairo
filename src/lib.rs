@@ -4,8 +4,11 @@
 
 extern crate cairo_sys as ffi;
 extern crate libc;
-extern crate glib;
 extern crate c_vec;
+
+#[cfg(feature = "glib")]
+#[macro_use]
+extern crate glib;
 
 pub use ffi::enums;
 pub use ffi::cairo_rectangle_t as Rectangle;
@@ -59,7 +62,7 @@ pub use patterns::{
     MeshCorner,
 };
 
-pub use fonts::{
+pub use font::{
     FontFace,
     FontType,
     FontSlant,
@@ -101,7 +104,7 @@ pub use xcb::{
 
 pub mod prelude;
 
-mod fonts;
+mod font;
 mod context;
 mod error;
 mod image_surface;

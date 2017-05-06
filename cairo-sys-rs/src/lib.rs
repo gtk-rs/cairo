@@ -35,6 +35,7 @@ use enums::{
     HintMetrics,
     Extend,
     Filter,
+    RegionOverlap,
     PathDataType,
     PatternType,
     Format,
@@ -50,12 +51,11 @@ pub struct cairo_surface_t(c_void);
 pub struct cairo_pattern_t(c_void);
 #[repr(C)]
 pub struct cairo_fill_rule_t(c_void);
-#[repr(C)]
-pub struct cairo_antialias_t(c_void);
-#[repr(C)]
-pub struct cairo_line_join_t(c_void);
-#[repr(C)]
-pub struct cairo_line_cap_t(c_void);
+
+pub type cairo_antialias_t = Antialias;
+pub type cairo_line_join_t = LineJoin;
+pub type cairo_line_cap_t = LineCap;
+pub type cairo_content_t = Content;
 
 #[cfg(feature = "xcb")]
 #[repr(C)]
@@ -100,8 +100,6 @@ pub struct cairo_rectangle_list_t {
     pub num_rectangles: c_int
 }
 #[repr(C)]
-pub struct cairo_content_t(c_void);
-#[repr(C)]
 pub struct cairo_path_t {
     pub status: Status,
     pub data: *mut [c_double; 2],
@@ -122,12 +120,11 @@ pub struct cairo_font_face_t(c_void);
 pub struct cairo_scaled_font_t(c_void);
 #[repr(C)]
 pub struct cairo_font_options_t(c_void);
-#[repr(C)]
-pub struct cairo_extend_t(c_void);
-#[repr(C)]
-pub struct cairo_filter_t(c_void);
-#[repr(C)]
-pub struct cairo_region_overlap_t(c_void);
+
+pub type cairo_extend_t = Extend;
+pub type cairo_filter_t = Filter;
+pub type cairo_region_overlap_t = RegionOverlap;
+
 #[repr(C)]
 #[derive(Clone, Copy)]
 pub struct FontExtents {
@@ -182,11 +179,13 @@ pub struct cairo_bool_t{
     value: c_int
 }
 
-impl cairo_bool_t{
+impl cairo_bool_t {
     pub fn as_bool(&self) -> bool{
         self.value != 0
     }
 }
+
+pub type CGContextRef = *mut c_void;
 
 pub type cairo_destroy_func_t = Option<unsafe extern fn (*mut c_void)>;
 pub type cairo_read_func_t = Option<unsafe extern fn (*mut c_void, *mut c_uchar, c_uint) -> Status>;
@@ -273,7 +272,7 @@ extern "C" {
     pub fn cairo_line_to(cr: *mut cairo_t, x: c_double, y: c_double);
     pub fn cairo_move_to(cr: *mut cairo_t, x: c_double, y: c_double);
     pub fn cairo_rectangle(cr: *mut cairo_t, x: c_double, y: c_double, width: c_double, height: c_double);
-    pub fn cairo_glyph_path(cr: *mut cairo_t, glyphs: *mut Glyph, num_glyphs: c_int);
+    pub fn cairo_glyph_path(cr: *mut cairo_t, glyphs: *const Glyph, num_glyphs: c_int);
     pub fn cairo_text_path(cr: *mut cairo_t, utf8: *const c_char);
     pub fn cairo_rel_curve_to(cr: *mut cairo_t, dx1: c_double, dy1: c_double, dx2: c_double, dy2: c_double, dx3: c_double, dy3: c_double);
     pub fn cairo_rel_line_to(cr: *mut cairo_t, dx: c_double, dy: c_double);
@@ -347,8 +346,7 @@ extern "C" {
     pub fn cairo_region_get_rectangle(region: *mut cairo_region_t, nth: c_int, rectangle: *mut cairo_rectangle_int_t);
     pub fn cairo_region_is_empty(region: *mut cairo_region_t) -> cairo_bool_t;
     pub fn cairo_region_contains_point(region: *mut cairo_region_t, x: c_int, y: c_int) -> cairo_bool_t;
-    //enum                cairo_region_overlap_t;
-    pub fn cairo_region_contains_rectangle(region: *mut cairo_region_t, rectangle: *mut cairo_rectangle_int_t) -> cairo_region_overlap_t;
+    pub fn cairo_region_contains_rectangle(region: *mut cairo_region_t, rectangle: *mut cairo_rectangle_int_t) -> RegionOverlap;
     pub fn cairo_region_equal(a: *mut cairo_region_t, b: *mut cairo_region_t) -> cairo_bool_t;
     pub fn cairo_region_translate(region: *mut cairo_region_t, dx: c_int, dy: c_int);
     pub fn cairo_region_intersect(dst: *mut cairo_region_t, other: *mut cairo_region_t) -> Status;
@@ -365,7 +363,7 @@ extern "C" {
     pub fn cairo_set_font_size(cr: *mut cairo_t, size: c_double);
     pub fn cairo_set_font_matrix(cr: *mut cairo_t, matrix: *const Matrix);
     pub fn cairo_get_font_matrix(cr: *mut cairo_t, matrix: *mut Matrix);
-    pub fn cairo_set_font_options(cr: *mut cairo_t, options: *mut cairo_font_options_t);
+    pub fn cairo_set_font_options(cr: *mut cairo_t, options: *const cairo_font_options_t);
     pub fn cairo_get_font_options(cr: *mut cairo_t, options: *mut cairo_font_options_t);
     pub fn cairo_set_font_face(cr: *mut cairo_t, font_face: *mut cairo_font_face_t);
     pub fn cairo_get_font_face(cr: *mut cairo_t) -> *mut cairo_font_face_t;
@@ -421,16 +419,14 @@ extern "C" {
     //pub fn cairo_font_face_get_user_data(font_face: *mut cairo_font_face_t, key: *mut cairo_user_data_key_t) -> *mut void;
 
     //CAIRO SCALED FONT
-    pub fn cairo_scaled_font_create(font_face: *mut cairo_font_face_t, font_matrix: *mut Matrix, ctm: *mut Matrix, options: *mut cairo_font_options_t) -> *mut cairo_scaled_font_t;
+    pub fn cairo_scaled_font_create(font_face: *mut cairo_font_face_t, font_matrix: *const Matrix, ctm: *const Matrix, options: *const cairo_font_options_t) -> *mut cairo_scaled_font_t;
     pub fn cairo_scaled_font_reference(scaled_font: *mut cairo_scaled_font_t) -> *mut cairo_scaled_font_t;
     pub fn cairo_scaled_font_destroy(scaled_font: *mut cairo_scaled_font_t);
     pub fn cairo_scaled_font_status(scaled_font: *mut cairo_scaled_font_t) -> Status;
-    //                    FontExtents;
     pub fn cairo_scaled_font_extents(scaled_font: *mut cairo_scaled_font_t, extents: *mut FontExtents);
-    //                    TextExtents;
-    pub fn cairo_scaled_font_text_extents(scaled_font: *mut cairo_scaled_font_t, utf8: *mut c_char, extents: *mut TextExtents);
-    pub fn cairo_scaled_font_glyph_extents(scaled_font: *mut cairo_scaled_font_t, glyphs: *mut Glyph, num_glyphs: c_int, extents: *mut TextExtents);
-    pub fn cairo_scaled_font_text_to_glyphs(scaled_font: *mut cairo_scaled_font_t, x: c_double, y: c_double, utf8: *mut c_char, utf8_len: c_int, glyphs: *mut *mut Glyph, num_glyphs: *mut c_int, clusters: *mut *mut TextCluster, num_clusters: *mut c_int, cluster_flags: *mut TextClusterFlags) -> Status;
+    pub fn cairo_scaled_font_text_extents(scaled_font: *mut cairo_scaled_font_t, utf8: *const c_char, extents: *mut TextExtents);
+    pub fn cairo_scaled_font_glyph_extents(scaled_font: *mut cairo_scaled_font_t, glyphs: *const Glyph, num_glyphs: c_int, extents: *mut TextExtents);
+    pub fn cairo_scaled_font_text_to_glyphs(scaled_font: *mut cairo_scaled_font_t, x: c_double, y: c_double, utf8: *const c_char, utf8_len: c_int, glyphs: *mut *mut Glyph, num_glyphs: *mut c_int, clusters: *mut *mut TextCluster, num_clusters: *mut c_int, cluster_flags: *mut TextClusterFlags) -> Status;
     pub fn cairo_scaled_font_get_font_face(scaled_font: *mut cairo_scaled_font_t) -> *mut cairo_font_face_t;
     pub fn cairo_scaled_font_get_font_options(scaled_font: *mut cairo_scaled_font_t, options: *mut cairo_font_options_t);
     pub fn cairo_scaled_font_get_font_matrix(scaled_font: *mut cairo_scaled_font_t, font_matrix: *mut Matrix);
@@ -443,20 +439,20 @@ extern "C" {
 
     //CAIRO FONT OPTIONS
     pub fn cairo_font_options_create() -> *mut cairo_font_options_t;
-    pub fn cairo_font_options_copy(original: *mut cairo_font_options_t) -> *mut cairo_font_options_t;
+    pub fn cairo_font_options_copy(original: *const cairo_font_options_t) -> *mut cairo_font_options_t;
     pub fn cairo_font_options_destroy(options: *mut cairo_font_options_t);
     pub fn cairo_font_options_status(options: *mut cairo_font_options_t) -> Status;
-    pub fn cairo_font_options_merge(options: *mut cairo_font_options_t, other: *mut cairo_font_options_t);
-    pub fn cairo_font_options_hash(options: *mut cairo_font_options_t) -> c_ulong;
-    pub fn cairo_font_options_equal(options: *mut cairo_font_options_t, other: *mut cairo_font_options_t) -> cairo_bool_t;
+    pub fn cairo_font_options_merge(options: *mut cairo_font_options_t, other: *const cairo_font_options_t);
+    pub fn cairo_font_options_hash(options: *const cairo_font_options_t) -> c_ulong;
+    pub fn cairo_font_options_equal(options: *const cairo_font_options_t, other: *const cairo_font_options_t) -> cairo_bool_t;
     pub fn cairo_font_options_set_antialias(options: *mut cairo_font_options_t, antialias: Antialias);
-    pub fn cairo_font_options_get_antialias(options: *mut cairo_font_options_t) -> Antialias;
+    pub fn cairo_font_options_get_antialias(options: *const cairo_font_options_t) -> Antialias;
     pub fn cairo_font_options_set_subpixel_order(options: *mut cairo_font_options_t, subpixel_order: SubpixelOrder);
-    pub fn cairo_font_options_get_subpixel_order(options: *mut cairo_font_options_t) -> SubpixelOrder;
+    pub fn cairo_font_options_get_subpixel_order(options: *const cairo_font_options_t) -> SubpixelOrder;
     pub fn cairo_font_options_set_hint_style(options: *mut cairo_font_options_t, hint_style: HintStyle);
-    pub fn cairo_font_options_get_hint_style(options: *mut cairo_font_options_t) -> HintStyle;
+    pub fn cairo_font_options_get_hint_style(options: *const cairo_font_options_t) -> HintStyle;
     pub fn cairo_font_options_set_hint_metrics(options: *mut cairo_font_options_t, hint_metrics: HintMetrics);
-    pub fn cairo_font_options_get_hint_metrics(options: *mut cairo_font_options_t) -> HintMetrics;
+    pub fn cairo_font_options_get_hint_metrics(options: *const cairo_font_options_t) -> HintMetrics;
 
     // CAIRO MATRIX
     pub fn cairo_matrix_multiply(matrix: *mut Matrix, left: *const Matrix, right: *const Matrix);
@@ -536,7 +532,7 @@ extern "C" {
                                                    minor_version: c_int);
     #[cfg(feature = "xcb")]
     pub fn cairo_xcb_device_debug_get_precision(device: *mut cairo_device_t) -> c_int;
-    #[cfg(feature = "xlib")]
+    #[cfg(feature = "xcb")]
     pub fn cairo_xcb_device_debug_set_precision(device: *mut cairo_device_t,
                                                 precision: c_int);
 
@@ -606,4 +602,17 @@ extern "C" {
     pub fn cairo_win32_surface_get_dc(surface: *mut cairo_surface_t) -> winapi::HDC;
     #[cfg(windows)]
     pub fn cairo_win32_surface_get_image(surface: *mut cairo_surface_t) -> *mut cairo_surface_t;
+
+    #[cfg(macos)]
+    pub fn cairo_quartz_surface_create(format: Format,
+                                       width: c_uint,
+                                       height: c_uint)
+                                       -> *mut cairo_surface_t;
+    #[cfg(macos)]
+    pub fn cairo_quartz_surface_create_for_cg_context(cg_context: CGContextRef,
+                                                      width: c_uint,
+                                                      height: c_uint)
+                                                      -> *mut cairo_surface_t;
+    #[cfg(macos)]
+    pub fn cairo_quartz_surface_get_cg_context(surface: *mut cairo_surface_t) -> CGContextRef;
 }

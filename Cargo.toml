@@ -3,6 +3,7 @@ name = "cairo-rs"
 version = "0.1.3"
 authors = ["The Gtk-rs Project Developers"]
 build = "build.rs"
+readme = "README.md"
 
 description = "Rust bindings for the Cairo library"
 repository = "https://github.com/gtk-rs/cairo"
@@ -21,14 +22,19 @@ png = ["cairo-sys-rs/png"]
 xcb = ["cairo-sys-rs/xcb"]
 purge-lgpl-docs = ["gtk-rs-lgpl-docs"]
 v1_12 = ["cairo-sys-rs/v1_12"]
-default = ["glib"]
+use_glib = ["glib", "glib-sys"]
+default = ["use_glib"]
 
 [build-dependencies.gtk-rs-lgpl-docs]
-version = "^0.1.1"
+version = "^0.1.3"
 optional = true
 
 [dependencies.glib]
 version = "^0.1.3"
+optional = true
+
+[dependencies.glib-sys]
+version = "^0.3.4"
 optional = true
 
 [dependencies]

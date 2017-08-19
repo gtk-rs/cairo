@@ -158,7 +158,7 @@ pub struct TextExtents {
     pub y_advance: c_double,
 }
 #[repr(C)]
-#[derive(Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Matrix {
     pub xx: c_double,
     pub yx: c_double,
@@ -486,6 +486,7 @@ extern "C" {
     pub fn cairo_image_surface_get_height(surface: *mut cairo_surface_t) -> c_int;
     pub fn cairo_image_surface_get_stride(surface: *mut cairo_surface_t) -> c_int;
     pub fn cairo_image_surface_get_width(surface: *mut cairo_surface_t) -> c_int;
+    pub fn cairo_format_stride_for_width(format: Format, width: c_int) -> c_int;
     #[cfg(feature = "png")]
     pub fn cairo_image_surface_create_from_png_stream(read_func: cairo_read_func_t, closure: *mut c_void) -> *mut cairo_surface_t;
     #[cfg(feature = "png")]
@@ -603,16 +604,16 @@ extern "C" {
     #[cfg(windows)]
     pub fn cairo_win32_surface_get_image(surface: *mut cairo_surface_t) -> *mut cairo_surface_t;
 
-    #[cfg(macos)]
+    #[cfg(any(target_os = "macos", target_os = "ios"))]
     pub fn cairo_quartz_surface_create(format: Format,
                                        width: c_uint,
                                        height: c_uint)
                                        -> *mut cairo_surface_t;
-    #[cfg(macos)]
+    #[cfg(any(target_os = "macos", target_os = "ios"))]
     pub fn cairo_quartz_surface_create_for_cg_context(cg_context: CGContextRef,
                                                       width: c_uint,
                                                       height: c_uint)
                                                       -> *mut cairo_surface_t;
-    #[cfg(macos)]
+    #[cfg(any(target_os = "macos", target_os = "ios"))]
     pub fn cairo_quartz_surface_get_cg_context(surface: *mut cairo_surface_t) -> CGContextRef;
 }

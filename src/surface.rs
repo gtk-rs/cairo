@@ -5,7 +5,12 @@
 use std::mem;
 use libc::c_void;
 
-#[cfg(feature = "glib")]
+#[cfg(any(target_os = "macos", target_os = "ios"))]
+use ffi::enums::Format;
+#[cfg(any(target_os = "macos", target_os = "ios"))]
+use ffi::CGContextRef;
+
+#[cfg(feature = "use_glib")]
 use glib::translate::*;
 use ffi;
 use ffi::enums::{
@@ -44,23 +49,23 @@ impl Surface {
         unsafe { Self::from_raw_full(ffi::cairo_surface_create_similar(self.0, content, width, height)) }
     }
 
-    #[cfg(macos)]
+    #[cfg(any(target_os = "macos", target_os = "ios"))]
     pub fn quartz_create(format: Format, width: u32, height: u32) -> Surface {
-        unsafe { from_glib_full(ffi::cairo_surface_create_similar(format, width, height)) }
+        unsafe { Self::from_raw_full(ffi::cairo_quartz_surface_create(format, width, height)) }
     }
 
-    #[cfg(macos)]
-    pub fn quartz_create_for_cg_context(cg_context: CGContextRef, width: c_uint, height: c_uint) -> Surface {
-        unsafe { from_glib_full(ffi::cairo_surface_create_similar(cgContext, width, height)) }
+    #[cfg(any(target_os = "macos", target_os = "ios"))]
+    pub fn quartz_create_for_cg_context(cg_context: CGContextRef, width: u32, height: u32) -> Surface {
+        unsafe { Self::from_raw_full(ffi::cairo_quartz_surface_create_for_cg_context(cg_context, width, height)) }
     }
 
-    #[cfg(macos)]
+    #[cfg(any(target_os = "macos", target_os = "ios"))]
     pub fn quartz_get_cg_context(&self) -> CGContextRef {
-        unsafe { ffi::cairo_surface_create_similar(self.to_glib_none().0) }
+        unsafe { ffi::cairo_quartz_surface_get_cg_context(self.to_raw_none()) }
     }
 }
 
-#[cfg(feature = "glib")]
+#[cfg(feature = "use_glib")]
 impl<'a> ToGlibPtr<'a, *mut ffi::cairo_surface_t> for Surface {
     type Storage = &'a Surface;
 
@@ -70,7 +75,7 @@ impl<'a> ToGlibPtr<'a, *mut ffi::cairo_surface_t> for Surface {
     }
 }
 
-#[cfg(feature = "glib")]
+#[cfg(feature = "use_glib")]
 impl FromGlibPtrNone<*mut ffi::cairo_surface_t> for Surface {
     #[inline]
     unsafe fn from_glib_none(ptr: *mut ffi::cairo_surface_t) -> Surface {
@@ -78,7 +83,7 @@ impl FromGlibPtrNone<*mut ffi::cairo_surface_t> for Surface {
     }
 }
 
-#[cfg(feature = "glib")]
+#[cfg(feature = "use_glib")]
 impl FromGlibPtrFull<*mut ffi::cairo_surface_t> for Surface {
     #[inline]
     unsafe fn from_glib_full(ptr: *mut ffi::cairo_surface_t) -> Surface {
@@ -139,7 +144,7 @@ impl<O: AsRef<Surface>> SurfacePriv for O {
     }
 }
 
-unsafe extern fn unbox<T>(data: *mut c_void) {
+unsafe extern "C" fn unbox<T>(data: *mut c_void) {
     let data: Box<T> = mem::transmute(data);
     drop(data);
 }

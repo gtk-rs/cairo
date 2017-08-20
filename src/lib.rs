@@ -6,9 +6,12 @@ extern crate cairo_sys as ffi;
 extern crate libc;
 extern crate c_vec;
 
-#[cfg(feature = "glib")]
+#[cfg(feature = "use_glib")]
 #[macro_use]
 extern crate glib;
+
+#[cfg(feature = "use_glib")]
+extern crate glib_sys as glib_ffi;
 
 pub use ffi::enums;
 pub use ffi::cairo_rectangle_t as Rectangle;
@@ -36,6 +39,7 @@ pub use enums::{
     Operator,
     PathDataType,
     Format,
+    RegionOverlap,
     SurfaceType,
 };
 
@@ -83,12 +87,16 @@ pub use matrices::{
 
 pub use rectangle::RectangleInt;
 
+pub use region::Region;
+
 pub use surface::Surface;
 
 pub use image_surface::{
     ImageSurface,
     ImageSurfaceData,
 };
+
+pub use pdf_surface::PDFSurface;
 
 #[cfg(feature = "xcb")]
 pub use xcb::{
@@ -107,12 +115,14 @@ pub mod prelude;
 mod font;
 mod context;
 mod error;
+mod pdf_surface;
 mod image_surface;
 #[cfg(feature = "png")]
 mod image_surface_png;
 mod paths;
 mod patterns;
 mod rectangle;
+mod region;
 mod surface;
 mod matrices;
 #[cfg(feature = "xcb")]
@@ -123,3 +133,4 @@ mod win32_surface;
 
 #[cfg(windows)]
 pub use win32_surface::Win32Surface;
+

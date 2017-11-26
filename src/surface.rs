@@ -5,9 +5,9 @@
 use std::mem;
 use libc::c_void;
 
-#[cfg(any(target_os = "macos", target_os = "ios"))]
+#[cfg(any(target_os = "macos", target_os = "ios", feature = "dox"))]
 use ffi::enums::Format;
-#[cfg(any(target_os = "macos", target_os = "ios"))]
+#[cfg(any(target_os = "macos", target_os = "ios", feature = "dox"))]
 use ffi::CGContextRef;
 
 #[cfg(feature = "use_glib")]
@@ -20,20 +20,27 @@ use ffi::enums::{
 };
 
 #[derive(Debug)]
-pub struct Surface(*mut ffi::cairo_surface_t);
+pub struct Surface(*mut ffi::cairo_surface_t, bool);
 
 impl Surface {
     #[doc(hidden)]
     pub unsafe fn from_raw_none(ptr: *mut ffi::cairo_surface_t) -> Surface {
         assert!(!ptr.is_null());
         ffi::cairo_surface_reference(ptr);
-        Surface(ptr)
+        Surface(ptr, false)
     }
+
+    #[doc(hidden)]
+    pub unsafe fn from_raw_borrow(ptr: *mut ffi::cairo_surface_t) -> Surface {
+        assert!(!ptr.is_null());
+        Surface(ptr, true)
+    }
+
 
     #[doc(hidden)]
     pub unsafe fn from_raw_full(ptr: *mut ffi::cairo_surface_t) -> Surface {
         assert!(!ptr.is_null());
-        Surface(ptr)
+        Surface(ptr, false)
     }
 
     #[doc(hidden)]
@@ -49,17 +56,17 @@ impl Surface {
         unsafe { Self::from_raw_full(ffi::cairo_surface_create_similar(self.0, content, width, height)) }
     }
 
-    #[cfg(any(target_os = "macos", target_os = "ios"))]
+    #[cfg(any(target_os = "macos", target_os = "ios", feature = "dox"))]
     pub fn quartz_create(format: Format, width: u32, height: u32) -> Surface {
         unsafe { Self::from_raw_full(ffi::cairo_quartz_surface_create(format, width, height)) }
     }
 
-    #[cfg(any(target_os = "macos", target_os = "ios"))]
+    #[cfg(any(target_os = "macos", target_os = "ios", feature = "dox"))]
     pub fn quartz_create_for_cg_context(cg_context: CGContextRef, width: u32, height: u32) -> Surface {
         unsafe { Self::from_raw_full(ffi::cairo_quartz_surface_create_for_cg_context(cg_context, width, height)) }
     }
 
-    #[cfg(any(target_os = "macos", target_os = "ios"))]
+    #[cfg(any(target_os = "macos", target_os = "ios", feature = "dox"))]
     pub fn quartz_get_cg_context(&self) -> CGContextRef {
         unsafe { ffi::cairo_quartz_surface_get_cg_context(self.to_raw_none()) }
     }
@@ -80,6 +87,14 @@ impl FromGlibPtrNone<*mut ffi::cairo_surface_t> for Surface {
     #[inline]
     unsafe fn from_glib_none(ptr: *mut ffi::cairo_surface_t) -> Surface {
         Self::from_raw_none(ptr)
+    }
+}
+
+#[cfg(feature = "use_glib")]
+impl FromGlibPtrBorrow<*mut ffi::cairo_surface_t> for Surface {
+    #[inline]
+    unsafe fn from_glib_borrow(ptr: *mut ffi::cairo_surface_t) -> Surface {
+        Self::from_raw_borrow(ptr)
     }
 }
 
@@ -105,7 +120,9 @@ impl Clone for Surface {
 
 impl Drop for Surface {
     fn drop(&mut self) {
-        unsafe { ffi::cairo_surface_destroy(self.0); }
+        if !self.1 {
+            unsafe { ffi::cairo_surface_destroy(self.0); }
+        }
     }
 }
 

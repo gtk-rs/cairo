@@ -2,7 +2,10 @@
 // See the COPYRIGHT file at the top-level directory of this distribution.
 // Licensed under the MIT license, see the LICENSE file or <http://opensource.org/licenses/MIT>
 
+#[cfg(windows)]
 extern crate winapi;
+#[cfg(all(not(windows), feature = "dox"))]
+pub use ffi::winapi;
 
 use std::ops::Deref;
 
@@ -74,6 +77,14 @@ impl FromGlibPtrNone<*mut ffi::cairo_surface_t> for Win32Surface {
     #[inline]
     unsafe fn from_glib_none(ptr: *mut ffi::cairo_surface_t) -> Win32Surface {
         Self::from(from_glib_none(ptr)).unwrap()
+    }
+}
+
+#[cfg(feature = "use_glib")]
+impl FromGlibPtrBorrow<*mut ffi::cairo_surface_t> for Win32Surface {
+    #[inline]
+    unsafe fn from_glib_borrow(ptr: *mut ffi::cairo_surface_t) -> Win32Surface {
+        Self::from(from_glib_borrow(ptr)).unwrap()
     }
 }
 

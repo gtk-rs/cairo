@@ -115,6 +115,14 @@ impl FromGlibPtrNone<*mut ffi::cairo_surface_t> for ImageSurface {
 }
 
 #[cfg(feature = "use_glib")]
+impl FromGlibPtrBorrow<*mut ffi::cairo_surface_t> for ImageSurface {
+    #[inline]
+    unsafe fn from_glib_borrow(ptr: *mut ffi::cairo_surface_t) -> ImageSurface {
+        Self::from(from_glib_borrow(ptr)).unwrap()
+    }
+}
+
+#[cfg(feature = "use_glib")]
 impl FromGlibPtrFull<*mut ffi::cairo_surface_t> for ImageSurface {
     #[inline]
     unsafe fn from_glib_full(ptr: *mut ffi::cairo_surface_t) -> ImageSurface {
@@ -141,6 +149,8 @@ impl Clone for ImageSurface {
         ImageSurface(self.0.clone())
     }
 }
+
+unsafe impl Send for ImageSurface {}
 
 pub struct ImageSurfaceData<'a> {
     surface: &'a mut ImageSurface,

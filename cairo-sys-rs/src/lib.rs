@@ -3,8 +3,16 @@
 // Licensed under the MIT license, see the LICENSE file or <http://opensource.org/licenses/MIT>
 
 #![allow(non_camel_case_types)]
+#![cfg_attr(feature = "cargo-clippy", allow(unreadable_literal, write_literal))]
 
 extern crate libc;
+
+#[cfg(feature = "use_glib")]
+extern crate glib_sys as glib_ffi;
+#[cfg(feature = "use_glib")]
+extern crate gobject_sys as gobject_ffi;
+#[cfg(feature = "use_glib")]
+extern crate glib;
 
 #[cfg(any(feature = "xlib", feature = "dox"))]
 extern crate x11;
@@ -140,24 +148,30 @@ pub struct cairo_rectangle_int_t {
     pub height: i32,
 }
 #[repr(C)]
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct cairo_rectangle_list_t {
     pub status: Status,
     pub rectangles: *mut cairo_rectangle_t,
     pub num_rectangles: c_int,
 }
 #[repr(C)]
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct cairo_path_t {
     pub status: Status,
-    pub data: *mut [c_double; 2],
+    pub data: *mut cairo_path_data,
     pub num_data: c_int,
 }
 #[repr(C)]
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct cairo_path_data_header{
     pub data_type: PathDataType,
     pub length:    c_int,
+}
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub union cairo_path_data{
+    pub header: cairo_path_data_header,
+    pub point: [f64; 2],
 }
 #[repr(C)]
 pub struct cairo_glyph_t(c_void);
@@ -233,7 +247,7 @@ pub struct cairo_user_data_key_t {
     pub unused: c_int,
 }
 #[repr(C)]
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct cairo_bool_t{
     value: c_int
 }
@@ -676,3 +690,6 @@ extern "C" {
     #[cfg(any(target_os = "macos", target_os = "ios", feature = "dox"))]
     pub fn cairo_quartz_surface_get_cg_context(surface: *mut cairo_surface_t) -> CGContextRef;
 }
+
+#[cfg(feature = "use_glib")]
+pub mod gobject;

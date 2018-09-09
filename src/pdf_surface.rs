@@ -17,6 +17,7 @@ use surface::{Surface, SurfaceExt};
 #[cfg(feature = "use_glib")]
 use glib::translate::*;
 
+#[derive(Debug)]
 pub struct PDFSurface(Surface);
 
 extern "C" {
@@ -34,7 +35,6 @@ impl PDFSurface {
         }
     }
 
-    #[doc(hidden)]
     pub unsafe fn from_raw_full(ptr: *mut ffi::cairo_surface_t) -> PDFSurface {
         Self::from(Surface::from_raw_full(ptr)).unwrap()
     }
@@ -79,6 +79,13 @@ impl<'a> ToGlibPtr<'a, *mut ffi::cairo_surface_t> for PDFSurface {
         let stash = self.0.to_glib_none();
         Stash(stash.0, stash.1)
     }
+
+    #[inline]
+    fn to_glib_full(&self) -> *mut ffi::cairo_surface_t {
+        unsafe {
+            ffi::cairo_surface_reference(self.0.to_glib_none().0)
+        }
+    }
 }
 
 #[cfg(feature = "use_glib")]
@@ -104,6 +111,9 @@ impl FromGlibPtrFull<*mut ffi::cairo_surface_t> for PDFSurface {
         Self::from_raw_full(ptr)
     }
 }
+
+#[cfg(feature = "use_glib")]
+gvalue_impl!(PDFSurface, ffi::cairo_surface_t, ffi::gobject::cairo_gobject_surface_get_type);
 
 #[cfg(test)]
 mod tests {

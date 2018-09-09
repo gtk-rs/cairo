@@ -20,10 +20,27 @@ v1_14 = ["v1_12"]
 xlib = ["x11"]
 png = []
 xcb = []
+use_glib = ["glib-sys", "gobject-sys", "glib"]
 
 [dependencies]
-x11 = { version = "2.16", features = ["xlib"], optional = true }
 libc = "0.2"
+
+[dependencies.glib]
+optional = true
+git = "https://github.com/gtk-rs/glib"
+
+[dependencies.glib-sys]
+optional = true
+git = "https://github.com/gtk-rs/sys"
+
+[dependencies.gobject-sys]
+optional = true
+git = "https://github.com/gtk-rs/sys"
+
+[dependencies.x11]
+optional = true
+version = "2.16"
+features = ["xlib"]
 
 [target.'cfg(windows)'.dependencies]
 winapi = { version = "0.3.2", features = ["windef"] }

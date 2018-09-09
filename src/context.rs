@@ -4,10 +4,9 @@
 
 #[cfg(feature = "use_glib")]
 use glib::translate::*;
-use c_vec::CVec;
-use std::mem::transmute;
-use libc::{c_double, c_int};
+use libc::c_int;
 use std::ffi::CString;
+use std::ops;
 use ::paths::Path;
 use ::font::{TextExtents, TextCluster, FontExtents, ScaledFont, FontOptions, FontFace, Glyph};
 use ::matrices::{Matrix, MatrixTrait};
@@ -16,6 +15,7 @@ use ffi::enums::{
     FontWeight,
     TextClusterFlags,
     Operator,
+    Content,
 };
 use Rectangle;
 use ffi;
@@ -25,15 +25,33 @@ use ffi::{
     cairo_rectangle_list_t,
 };
 use ffi::enums::{Status, Antialias, LineCap, LineJoin, FillRule};
-use ::patterns::{wrap_pattern, Pattern};
+use ::patterns::{Pattern, PatternTrait};
 use surface::Surface;
 
-pub struct RectangleVec {
+pub struct RectangleList {
     ptr: *mut cairo_rectangle_list_t,
-    pub rectangles: CVec<Rectangle>,
 }
 
-impl Drop for RectangleVec {
+impl ops::Deref for RectangleList {
+    type Target = [Rectangle];
+
+    fn deref(&self) -> &[Rectangle] {
+        use std::slice;
+
+        unsafe {
+            let ptr = (*self.ptr).rectangles;
+            let len = (*self.ptr).num_rectangles;
+
+            if ptr.is_null() || len == 0 {
+                &[]
+            } else {
+                slice::from_raw_parts(ptr, len as usize)
+            }
+        }
+    }
+}
+
+impl Drop for RectangleList {
     fn drop(&mut self) {
         unsafe {
             ffi::cairo_rectangle_list_destroy(self.ptr);
@@ -41,6 +59,7 @@ impl Drop for RectangleVec {
     }
 }
 
+#[derive(Debug)]
 pub struct Context(*mut cairo_t, bool);
 
 #[cfg(feature = "use_glib")]
@@ -50,6 +69,13 @@ impl<'a> ToGlibPtr<'a, *mut ffi::cairo_t> for &'a Context {
     #[inline]
     fn to_glib_none(&self) -> Stash<'a, *mut ffi::cairo_t, &'a Context> {
         Stash(self.0, *self)
+    }
+
+    #[inline]
+    fn to_glib_full(&self) -> *mut ffi::cairo_t {
+        unsafe {
+            ffi::cairo_reference(self.0)
+        }
     }
 }
 
@@ -77,6 +103,9 @@ impl FromGlibPtrFull<*mut ffi::cairo_t> for Context {
     }
 }
 
+#[cfg(feature = "use_glib")]
+gvalue_impl!(Context, cairo_t, ffi::gobject::cairo_gobject_context_get_type);
+
 impl AsRef<Context> for Context {
     fn as_ref(&self) -> &Context {
         self
@@ -99,25 +128,24 @@ impl Drop for Context {
 
 impl Context {
     #[inline]
-    unsafe fn from_raw_none(ptr: *mut ffi::cairo_t) -> Context {
+    pub unsafe fn from_raw_none(ptr: *mut ffi::cairo_t) -> Context {
         assert!(!ptr.is_null());
         ffi::cairo_reference(ptr);
         Context(ptr, false)
     }
 
     #[inline]
-    unsafe fn from_raw_borrow(ptr: *mut ffi::cairo_t) -> Context {
+    pub unsafe fn from_raw_borrow(ptr: *mut ffi::cairo_t) -> Context {
         assert!(!ptr.is_null());
         Context(ptr, true)
     }
 
     #[inline]
-    unsafe fn from_raw_full(ptr: *mut ffi::cairo_t) -> Context {
+    pub unsafe fn from_raw_full(ptr: *mut ffi::cairo_t) -> Context {
         assert!(!ptr.is_null());
         Context(ptr, false)
     }
 
-    #[doc(hidden)]
     pub fn to_raw_none(&self) -> *mut ffi::cairo_t {
         self.0
     }
@@ -164,16 +192,15 @@ impl Context {
         }
     }
 
-    /*
     pub fn push_group_with_content(&self, content: Content){
         unsafe {
             ffi::cairo_push_group_with_content(self.0, content)
         }
-    }*/
+    }
 
-    pub fn pop_group(&self) -> Box<Pattern> {
+    pub fn pop_group(&self) -> Pattern {
         unsafe {
-            wrap_pattern(ffi::cairo_pop_group(self.0))
+            Pattern::from_raw_full(ffi::cairo_pop_group(self.0))
         }
     }
 
@@ -203,14 +230,14 @@ impl Context {
 
     pub fn set_source(&self, source: &Pattern) {
         unsafe {
-            ffi::cairo_set_source(self.0, source.get_ptr());
+            ffi::cairo_set_source(self.0, source.as_ptr());
         }
         self.ensure_status();
     }
 
-    pub fn get_source(&self) -> Box<Pattern> {
+    pub fn get_source(&self) -> Pattern {
         unsafe {
-            wrap_pattern(ffi::cairo_get_source(self.0))
+            Pattern::from_raw_none(ffi::cairo_get_source(self.0))
         }
     }
 
@@ -393,16 +420,14 @@ impl Context {
         self.ensure_status()
     }
 
-    pub fn copy_clip_rectangle_list(&self) -> RectangleVec {
+    pub fn copy_clip_rectangle_list(&self) -> RectangleList {
         unsafe {
             let rectangle_list = ffi::cairo_copy_clip_rectangle_list(self.0);
 
             (*rectangle_list).status.ensure_valid();
 
-            RectangleVec {
+            RectangleList {
                 ptr: rectangle_list,
-                rectangles: CVec::new((*rectangle_list).rectangles,
-                                      (*rectangle_list).num_rectangles as usize),
             }
         }
     }
@@ -439,11 +464,15 @@ impl Context {
 
     pub fn mask(&self, pattern: &Pattern) {
         unsafe {
-            ffi::cairo_mask(self.0, pattern.get_ptr())
+            ffi::cairo_mask(self.0, pattern.as_ptr())
         }
     }
 
-    //fn ffi::cairo_mask_surface(cr: *mut cairo_t, surface: *mut cairo_surface_t, surface_x: c_double, surface_y: c_double);
+    pub fn mask_surface(&self, surface: &Surface, x: f64, y: f64) {
+        unsafe {
+            ffi::cairo_mask_surface(self.0, surface.to_raw_none(), x, y);
+        }
+    }
 
     pub fn paint(&self) {
         unsafe {
@@ -551,59 +580,31 @@ impl Context {
         }
     }
 
-    pub fn user_to_device(&self, x: f64, y: f64) -> (f64, f64) {
+    pub fn user_to_device(&self, mut x: f64, mut y: f64) -> (f64, f64) {
         unsafe {
-            let x_ptr: *mut c_double = transmute(Box::new(x));
-            let y_ptr: *mut c_double = transmute(Box::new(y));
-
-            ffi::cairo_user_to_device(self.0, x_ptr, y_ptr);
-
-            let x_box: Box<f64> = transmute(x_ptr);
-            let y_box: Box<f64> = transmute(y_ptr);
-
-            (*x_box, *y_box)
+            ffi::cairo_user_to_device(self.0, &mut x, &mut y);
+            (x, y)
         }
     }
 
-    pub fn user_to_device_distance(&self, dx: f64, dy: f64) -> (f64, f64) {
+    pub fn user_to_device_distance(&self, mut dx: f64, mut dy: f64) -> (f64, f64) {
         unsafe {
-            let dx_ptr: *mut c_double = transmute(Box::new(dx));
-            let dy_ptr: *mut c_double = transmute(Box::new(dy));
-
-            ffi::cairo_user_to_device_distance(self.0, dx_ptr, dy_ptr);
-
-            let dx_box: Box<f64> = transmute(dx_ptr);
-            let dy_box: Box<f64> = transmute(dy_ptr);
-
-            (*dx_box, *dy_box)
+            ffi::cairo_user_to_device_distance(self.0, &mut dx, &mut dy);
+            (dx, dy)
         }
     }
 
-    pub fn device_to_user(&self, x: f64, y: f64) -> (f64, f64) {
+    pub fn device_to_user(&self, mut x: f64, mut y: f64) -> (f64, f64) {
         unsafe {
-            let x_ptr: *mut c_double = transmute(Box::new(x));
-            let y_ptr: *mut c_double = transmute(Box::new(y));
-
-            ffi::cairo_device_to_user(self.0, x_ptr, y_ptr);
-
-            let x_box: Box<f64> = transmute(x_ptr);
-            let y_box: Box<f64> = transmute(y_ptr);
-
-            (*x_box, *y_box)
+            ffi::cairo_device_to_user(self.0, &mut x, &mut y);
+            (x, y)
         }
     }
 
-    pub fn device_to_user_distance(&self, dx: f64, dy: f64) -> (f64, f64) {
+    pub fn device_to_user_distance(&self, mut dx: f64, mut dy: f64) -> (f64, f64) {
         unsafe {
-            let dx_ptr: *mut c_double = transmute(Box::new(dx));
-            let dy_ptr: *mut c_double = transmute(Box::new(dy));
-
-            ffi::cairo_device_to_user_distance(self.0, dx_ptr, dy_ptr);
-
-            let dx_box: Box<f64> = transmute(dx_ptr);
-            let dy_box: Box<f64> = transmute(dy_ptr);
-
-            (*dx_box, *dy_box)
+            ffi::cairo_device_to_user_distance(self.0, &mut dx, &mut dy);
+            (dx, dy)
         }
     }
 
@@ -611,7 +612,8 @@ impl Context {
 
     pub fn select_font_face(&self, family: &str, slant: FontSlant, weight: FontWeight) {
         unsafe {
-            ffi::cairo_select_font_face(self.0, CString::new(family).unwrap().as_ptr(), slant, weight)
+            let family = CString::new(family).unwrap();
+            ffi::cairo_select_font_face(self.0, family.as_ptr(), slant, weight)
         }
     }
 
@@ -650,7 +652,7 @@ impl Context {
         out
     }
 
-    pub fn set_font_face(&self, font_face: FontFace) {
+    pub fn set_font_face(&self, font_face: &FontFace) {
         unsafe {
             ffi::cairo_set_font_face(self.0, font_face.to_raw_none())
         }
@@ -662,7 +664,7 @@ impl Context {
         }
     }
 
-    pub fn set_scaled_font(&self, scaled_font: ScaledFont) {
+    pub fn set_scaled_font(&self, scaled_font: &ScaledFont) {
         unsafe {
             ffi::cairo_set_scaled_font(self.0, scaled_font.to_raw_none())
         }
@@ -676,7 +678,8 @@ impl Context {
 
     pub fn show_text(&self, text: &str) {
         unsafe {
-            ffi::cairo_show_text(self.0, CString::new(text).unwrap().as_ptr())
+            let text = CString::new(text).unwrap();
+            ffi::cairo_show_text(self.0, text.as_ptr())
         }
     }
 
@@ -692,8 +695,9 @@ impl Context {
                             clusters: &[TextCluster],
                             cluster_flags: TextClusterFlags) {
         unsafe {
+            let text = CString::new(text).unwrap();
             ffi::cairo_show_text_glyphs(self.0,
-                                        CString::new(text).unwrap().as_ptr(),
+                                        text.as_ptr(),
                                         -1 as c_int, //NULL terminated
                                         glyphs.as_ptr(),
                                         glyphs.len() as c_int,
@@ -730,7 +734,8 @@ impl Context {
         };
 
         unsafe {
-            ffi::cairo_text_extents(self.0, CString::new(text).unwrap().as_ptr(), &mut extents);
+            let text = CString::new(text).unwrap();
+            ffi::cairo_text_extents(self.0, text.as_ptr(), &mut extents);
         }
         extents
     }
@@ -756,19 +761,19 @@ impl Context {
 
     pub fn copy_path(&self) -> Path {
         unsafe {
-            Path::wrap(ffi::cairo_copy_path(self.0))
+            Path::from_raw_full(ffi::cairo_copy_path(self.0))
         }
     }
 
     pub fn copy_path_flat(&self) -> Path {
         unsafe {
-            Path::wrap(ffi::cairo_copy_path_flat(self.0))
+            Path::from_raw_full(ffi::cairo_copy_path_flat(self.0))
         }
     }
 
     pub fn append_path(&self, path: &Path) {
         unsafe {
-            ffi::cairo_append_path(self.0, path.get_ptr())
+            ffi::cairo_append_path(self.0, path.as_ptr())
         }
     }
 
@@ -780,10 +785,10 @@ impl Context {
 
     pub fn get_current_point(&self) -> (f64, f64) {
         unsafe {
-            let x = transmute(Box::new(0.0f64));
-            let y = transmute(Box::new(0.0f64));
-            ffi::cairo_get_current_point(self.0, x, y);
-            (*x, *y)
+            let mut x = 0.0;
+            let mut y = 0.0;
+            ffi::cairo_get_current_point(self.0, &mut x, &mut y);
+            (x, y)
         }
     }
 
@@ -843,7 +848,8 @@ impl Context {
 
     pub fn text_path(&self, str_: &str) {
         unsafe {
-            ffi::cairo_text_path(self.0, CString::new(str_).unwrap().as_ptr())
+            let str_ = CString::new(str_).unwrap();
+            ffi::cairo_text_path(self.0, str_.as_ptr())
         }
     }
 
@@ -869,5 +875,31 @@ impl Context {
         unsafe {
             ffi::cairo_rel_move_to(self.0, dx, dy)
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use ::image_surface::{ImageSurface};
+    use ::patterns::{LinearGradient};
+    use ffi::enums::{Format};
+
+    fn create_ctx() -> Context {
+        let surface = ImageSurface::create(Format::ARgb32, 10, 10).unwrap();
+        Context::new(&surface)
+    }
+
+    #[test]
+    fn drop_non_reference_pattern_from_ctx() {
+        let ctx = create_ctx();
+        ctx.get_source();
+    }
+
+    #[test]
+    fn drop_non_reference_pattern() {
+        let ctx = create_ctx();
+        let mut pattern = Pattern::LinearGradient(LinearGradient::new(1.0f64, 2.0f64, 3.0f64, 4.0f64));
+        ctx.set_source(&mut pattern);
     }
 }

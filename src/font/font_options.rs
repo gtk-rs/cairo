@@ -3,9 +3,12 @@ use glib::translate::*;
 #[cfg(feature = "use_glib")]
 use glib_ffi;
 #[cfg(feature = "use_glib")]
+use gobject_ffi;
+#[cfg(feature = "use_glib")]
 use std::ptr;
 #[cfg(feature = "use_glib")]
 use std::mem;
+use std::hash;
 use std::cmp::PartialEq;
 use ffi;
 
@@ -18,6 +21,7 @@ use ffi::enums::{
 
 #[cfg(feature = "use_glib")]
 glib_wrapper! {
+    #[derive(Debug)]
     pub struct FontOptions(Boxed<ffi::cairo_font_options_t>);
 
     match fn {
@@ -28,10 +32,12 @@ glib_wrapper! {
             ptr
         },
         free => |ptr| ffi::cairo_font_options_destroy(ptr),
+        get_type => || ffi::gobject::cairo_gobject_font_options_get_type(),
     }
 }
 
 #[cfg(not(feature = "use_glib"))]
+#[derive(Debug)]
 pub struct FontOptions(*mut ffi::cairo_font_options_t);
 
 impl FontOptions {
@@ -44,26 +50,22 @@ impl FontOptions {
     }
 
     #[cfg(feature = "use_glib")]
-    #[doc(hidden)]
     pub unsafe fn from_raw_full(ptr: *mut ffi::cairo_font_options_t) -> FontOptions {
         from_glib_full(ptr)
     }
 
     #[cfg(not(feature = "use_glib"))]
-    #[doc(hidden)]
     pub unsafe fn from_raw_full(ptr: *mut ffi::cairo_font_options_t) -> FontOptions {
         assert!(!ptr.is_null());
         FontOptions(ptr)
     }
 
     #[cfg(feature = "use_glib")]
-    #[doc(hidden)]
     pub fn to_raw_none(&self) -> *mut ffi::cairo_font_options_t {
         mut_override(self.to_glib_none().0)
     }
 
     #[cfg(not(feature = "use_glib"))]
-    #[doc(hidden)]
     pub fn to_raw_none(&self) -> *mut ffi::cairo_font_options_t {
         self.0
     }
@@ -78,12 +80,6 @@ impl FontOptions {
     pub fn merge(&mut self, other: &FontOptions) {
         unsafe {
             ffi::cairo_font_options_merge(self.to_raw_none(), other.to_raw_none())
-        }
-    }
-
-    pub fn hash(&self) -> u64{
-        unsafe {
-            ffi::cairo_font_options_hash(self.to_raw_none()) as u64
         }
     }
 
@@ -140,6 +136,40 @@ impl PartialEq for FontOptions {
     fn eq(&self, other: &FontOptions) -> bool {
         unsafe {
             ffi::cairo_font_options_equal(self.to_raw_none(), other.to_raw_none()).as_bool()
+        }
+    }
+}
+
+impl Eq for FontOptions { }
+
+impl hash::Hash for FontOptions {
+    fn hash<H>(&self, state: &mut H) where H: hash::Hasher {
+        unsafe {
+            hash::Hash::hash(&ffi::cairo_font_options_hash(self.to_raw_none()), state)
+        }
+    }
+}
+
+impl Default for FontOptions {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+#[cfg(not(feature = "use_glib"))]
+impl Drop for FontOptions {
+    fn drop(&mut self) {
+        unsafe {
+            ffi::cairo_font_options_destroy(self.to_raw_none());
+        }
+    }
+}
+
+#[cfg(not(feature = "use_glib"))]
+impl Clone for FontOptions {
+    fn clone(&self) -> FontOptions {
+        unsafe {
+            FontOptions::from_raw_full(ffi::cairo_font_options_copy(self.to_raw_none()))
         }
     }
 }

@@ -5,11 +5,6 @@
 use std::mem;
 use libc::c_void;
 
-#[cfg(any(target_os = "macos", target_os = "ios", feature = "dox"))]
-use ffi::enums::Format;
-#[cfg(any(target_os = "macos", target_os = "ios", feature = "dox"))]
-use ffi::CGContextRef;
-
 #[cfg(feature = "use_glib")]
 use glib::translate::*;
 use ffi;
@@ -23,52 +18,29 @@ use ffi::enums::{
 pub struct Surface(*mut ffi::cairo_surface_t, bool);
 
 impl Surface {
-    #[doc(hidden)]
     pub unsafe fn from_raw_none(ptr: *mut ffi::cairo_surface_t) -> Surface {
         assert!(!ptr.is_null());
         ffi::cairo_surface_reference(ptr);
         Surface(ptr, false)
     }
 
-    #[doc(hidden)]
     pub unsafe fn from_raw_borrow(ptr: *mut ffi::cairo_surface_t) -> Surface {
         assert!(!ptr.is_null());
         Surface(ptr, true)
     }
 
 
-    #[doc(hidden)]
     pub unsafe fn from_raw_full(ptr: *mut ffi::cairo_surface_t) -> Surface {
         assert!(!ptr.is_null());
         Surface(ptr, false)
     }
 
-    #[doc(hidden)]
     pub fn to_raw_none(&self) -> *mut ffi::cairo_surface_t {
         self.0
     }
 
-    pub fn status(&self) -> Status {
-        unsafe { ffi::cairo_surface_status(self.0) }
-    }
-
     pub fn create_similar(&self, content: Content, width: i32, height: i32) -> Surface {
         unsafe { Self::from_raw_full(ffi::cairo_surface_create_similar(self.0, content, width, height)) }
-    }
-
-    #[cfg(any(target_os = "macos", target_os = "ios", feature = "dox"))]
-    pub fn quartz_create(format: Format, width: u32, height: u32) -> Surface {
-        unsafe { Self::from_raw_full(ffi::cairo_quartz_surface_create(format, width, height)) }
-    }
-
-    #[cfg(any(target_os = "macos", target_os = "ios", feature = "dox"))]
-    pub fn quartz_create_for_cg_context(cg_context: CGContextRef, width: u32, height: u32) -> Surface {
-        unsafe { Self::from_raw_full(ffi::cairo_quartz_surface_create_for_cg_context(cg_context, width, height)) }
-    }
-
-    #[cfg(any(target_os = "macos", target_os = "ios", feature = "dox"))]
-    pub fn quartz_get_cg_context(&self) -> CGContextRef {
-        unsafe { ffi::cairo_quartz_surface_get_cg_context(self.to_raw_none()) }
     }
 }
 
@@ -79,6 +51,13 @@ impl<'a> ToGlibPtr<'a, *mut ffi::cairo_surface_t> for Surface {
     #[inline]
     fn to_glib_none(&'a self) -> Stash<'a, *mut ffi::cairo_surface_t, Self> {
         Stash(self.to_raw_none(), self)
+    }
+
+    #[inline]
+    fn to_glib_full(&self) -> *mut ffi::cairo_surface_t {
+        unsafe {
+            ffi::cairo_surface_reference(self.to_raw_none())
+        }
     }
 }
 
@@ -106,6 +85,9 @@ impl FromGlibPtrFull<*mut ffi::cairo_surface_t> for Surface {
     }
 }
 
+#[cfg(feature = "use_glib")]
+gvalue_impl!(Surface, ffi::cairo_surface_t, ffi::gobject::cairo_gobject_surface_get_type);
+
 impl AsRef<Surface> for Surface {
     fn as_ref(&self) -> &Surface {
         self
@@ -130,6 +112,7 @@ pub trait SurfaceExt {
     fn flush(&self);
     fn finish(&self);
     fn get_type(&self) -> SurfaceType;
+    fn status(&self) -> Status;
 }
 
 impl<O: AsRef<Surface>> SurfaceExt for O {
@@ -144,16 +127,24 @@ impl<O: AsRef<Surface>> SurfaceExt for O {
     fn get_type(&self) -> SurfaceType {
         unsafe { ffi::cairo_surface_get_type(self.as_ref().0) }
     }
+
+    fn status(&self) -> Status {
+        unsafe { ffi::cairo_surface_status(self.as_ref().0) }
+    }
 }
 
-pub trait SurfacePriv {
+pub(crate) trait SurfacePriv {
     unsafe fn set_user_data<K, T>(&self, key: &K, data: Box<T>) -> Result<(), Status>;
 }
 
 impl<O: AsRef<Surface>> SurfacePriv for O {
     unsafe fn set_user_data<K, T>(&self, key: &K, data: Box<T>) -> Result<(), Status> {
-        let status = ffi::cairo_surface_set_user_data(self.as_ref().0, mem::transmute(key),
-            mem::transmute(data), Some(unbox::<T>));
+        let ptr: *mut T = Box::into_raw(data);
+
+        assert_eq!(mem::size_of::<*mut c_void>(), mem::size_of_val(&ptr));
+
+        let status = ffi::cairo_surface_set_user_data(self.as_ref().0, key as *const _ as *mut _,
+            ptr as *mut c_void, Some(unbox::<T>));
         match status {
             Status::Success => Ok(()),
             x => Err(x),
@@ -162,6 +153,6 @@ impl<O: AsRef<Surface>> SurfacePriv for O {
 }
 
 unsafe extern "C" fn unbox<T>(data: *mut c_void) {
-    let data: Box<T> = mem::transmute(data);
+    let data: Box<T> = Box::from_raw(data as *mut T);
     drop(data);
 }

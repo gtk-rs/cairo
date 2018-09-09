@@ -27,17 +27,14 @@ libc = "0.2"
 
 [dependencies.glib]
 optional = true
-git = "https://github.com/gtk-rs/glib"
 version = "0.6.0"
 
 [dependencies.glib-sys]
 optional = true
-git = "https://github.com/gtk-rs/sys"
 version = "0.7.0"
 
 [dependencies.gobject-sys]
 optional = true
-git = "https://github.com/gtk-rs/sys"
 version = "0.7.0"
 
 [dependencies.x11]

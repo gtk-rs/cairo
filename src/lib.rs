@@ -5,6 +5,9 @@
 extern crate cairo_sys as ffi;
 extern crate libc;
 
+#[macro_use]
+extern crate bitflags;
+
 #[cfg(feature = "use_glib")]
 #[macro_use]
 extern crate glib;
@@ -15,6 +18,8 @@ extern crate glib_sys as glib_ffi;
 #[cfg(feature = "use_glib")]
 extern crate gobject_sys as gobject_ffi;
 
+#[cfg(test)]
+extern crate tempfile;
 
 // Helper macro for our GValue related trait impls
 #[cfg(feature = "use_glib")]
@@ -25,7 +30,6 @@ macro_rules! gvalue_impl {
         use glib::translate::*;
         use glib_ffi;
         use gobject_ffi;
-        use std::ptr;
 
         impl glib::types::StaticType for $name {
             fn static_type() -> glib::types::Type {
@@ -52,15 +56,12 @@ macro_rules! gvalue_impl {
                 if let Some(s) = s {
                     gobject_ffi::g_value_set_boxed(v.to_glib_none_mut().0, s.to_glib_none().0 as glib_ffi::gpointer);
                 } else {
-                    gobject_ffi::g_value_set_boxed(v.to_glib_none_mut().0, ptr::null_mut());
+                    gobject_ffi::g_value_set_boxed(v.to_glib_none_mut().0, ::std::ptr::null_mut());
                 }
             }
         }
     }
 }
-
-pub use ffi::enums;
-pub use ffi::cairo_rectangle_t as Rectangle;
 
 pub use context::{
     Context,
@@ -73,21 +74,9 @@ pub use paths::{
     PathSegment
 };
 
-pub use enums::{
-    Status,
-    Antialias,
-    Content,
-    Extend,
-    FillRule,
-    Filter,
-    LineCap,
-    LineJoin,
-    Operator,
-    PathDataType,
-    Format,
-    RegionOverlap,
-    SurfaceType,
-};
+pub use device::Device;
+
+pub use enums::*;
 
 pub use error::{
     BorrowError,
@@ -108,10 +97,8 @@ pub use patterns::{
     SurfacePattern,
 };
 
-#[cfg(any(feature = "v1_12", feature = "dox"))]
 pub use patterns::{
     Mesh,
-    MeshCorner,
 };
 
 pub use font::{
@@ -133,24 +120,26 @@ pub use matrices::{
     MatrixTrait,
 };
 
-pub use rectangle::RectangleInt;
+pub use recording_surface::RecordingSurface;
+pub use rectangle::Rectangle;
+pub use rectangle_int::RectangleInt;
 
 pub use region::Region;
 
-pub use surface::Surface;
+pub use surface::{
+    MappedImageSurface,
+    Surface,
+};
 
 pub use image_surface::{
     ImageSurface,
     ImageSurfaceData,
 };
 
-pub use pdf_surface::PDFSurface;
-
 #[cfg(any(feature = "xcb", feature = "dox"))]
 pub use xcb::{
     XCBConnection,
     XCBSurface,
-    Device,
     XCBDrawable,
     XCBPixmap,
     XCBRenderPictFormInfo,
@@ -160,21 +149,38 @@ pub use xcb::{
 
 pub mod prelude;
 
+mod constants;
+pub use constants::*;
+mod utils;
+pub use utils::*;
+
 mod font;
 mod context;
+mod device;
+mod enums;
 mod error;
-mod pdf_surface;
 mod image_surface;
 #[cfg(any(feature = "png", feature = "dox"))]
 mod image_surface_png;
 mod paths;
 mod patterns;
+mod recording_surface;
 mod rectangle;
+mod rectangle_int;
 mod region;
 mod surface;
 mod matrices;
 #[cfg(any(feature = "xcb", feature = "dox"))]
 mod xcb;
+
+#[cfg(any(feature = "pdf", feature = "svg", feature = "ps", feature = "dox"))]
+mod support;
+#[cfg(any(feature = "pdf", feature = "dox"))]
+pub mod pdf;
+#[cfg(any(feature = "svg", feature = "dox"))]
+pub mod svg;
+#[cfg(any(feature = "ps", feature = "dox"))]
+pub mod ps;
 
 #[cfg(any(target_os = "macos", target_os = "ios", feature = "dox"))]
 mod quartz_surface;
@@ -186,4 +192,3 @@ mod win32_surface;
 
 #[cfg(any(windows, feature = "dox"))]
 pub use win32_surface::Win32Surface;
-

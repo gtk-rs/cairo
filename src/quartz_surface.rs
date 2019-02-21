@@ -3,11 +3,12 @@
 // Licensed under the MIT license, see the LICENSE file or <http://opensource.org/licenses/MIT>
 
 use std::ops::Deref;
+use std::fmt;
 
 #[cfg(feature = "use_glib")]
 use glib::translate::*;
 use ffi;
-use ffi::enums::{Format, SurfaceType};
+use ::enums::{Format, SurfaceType};
 use surface::{Surface, SurfaceExt};
 use Status;
 
@@ -35,7 +36,9 @@ impl QuartzSurface {
     }
 
     pub fn create(format: Format, width: u32, height: u32) -> Result<QuartzSurface, Status> {
-        unsafe { Self::from_raw_full(ffi::cairo_quartz_surface_create(format, width, height)) }
+        unsafe {
+            Self::from_raw_full(ffi::cairo_quartz_surface_create(format.into(), width, height))
+        }
     }
 
     pub fn create_for_cg_context(cg_context: CGContextRef, width: u32, height: u32) -> Result<QuartzSurface, Status> {
@@ -109,5 +112,11 @@ impl Deref for QuartzSurface {
 impl Clone for QuartzSurface {
     fn clone(&self) -> QuartzSurface {
         QuartzSurface(self.0.clone())
+    }
+}
+
+impl fmt::Display for QuartzSurface {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "QuartzSurface")
     }
 }

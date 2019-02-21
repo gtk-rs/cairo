@@ -22,14 +22,11 @@ fn main() {
 }
 
 fn find(package_name: &str, shared_libs: &[&str]) -> Result<(), Error> {
-    let version = if cfg!(feature = "1.14") {
-        "1.14"
-    } else if cfg!(feature = "1.12") {
-        "1.12"
-    } else {
-        "1.10"
-    };
+    let version = "1.12";
 
+    if let Ok(inc_dir) = env::var("GTK_INCLUDE_DIR") {
+        println!("cargo:include={}", inc_dir);
+    }
     if let Ok(lib_dir) = env::var("GTK_LIB_DIR") {
         for lib_ in shared_libs.iter() {
             println!("cargo:rustc-link-lib=dylib={}", lib_);
@@ -50,6 +47,10 @@ fn find(package_name: &str, shared_libs: &[&str]) -> Result<(), Error> {
     }
     match config.probe(package_name) {
         Ok(library) => {
+            if let Ok(paths) = std::env::join_paths(library.include_paths) {
+                // Exposed to other build scripts as DEP_CAIRO_INCLUDE; use env::split_paths
+                println!("cargo:include={}", paths.to_string_lossy());
+            }
             if hardcode_shared_libs {
                 for lib_ in shared_libs.iter() {
                     println!("cargo:rustc-link-lib=dylib={}", lib_);

@@ -5,6 +5,7 @@
 #[cfg(feature = "use_glib")]
 use glib::translate::*;
 use ffi;
+use std::fmt;
 
 use surface::Surface;
 
@@ -17,12 +18,24 @@ impl XCBDrawable {
     }
 }
 
+impl fmt::Display for XCBDrawable {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "XCBDrawable")
+    }
+}
+
 #[derive(Debug)]
 pub struct XCBPixmap(pub u32);
 
 impl XCBPixmap {
     fn to_raw_none(&self) -> u32 {
         self.0
+    }
+}
+
+impl fmt::Display for XCBPixmap {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "XCBPixmap")
     }
 }
 
@@ -96,6 +109,12 @@ impl Clone for XCBConnection {
     }
 }
 
+impl fmt::Display for XCBConnection {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "XCBConnection")
+    }
+}
+
 #[derive(Debug)]
 pub struct XCBRenderPictFormInfo(pub *mut ffi::xcb_render_pictforminfo_t);
 
@@ -166,6 +185,12 @@ impl Clone for XCBRenderPictFormInfo {
     }
 }
 
+impl fmt::Display for XCBRenderPictFormInfo {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "XCBRenderPictFormInfo")
+    }
+}
+
 #[derive(Debug)]
 pub struct XCBScreen(pub *mut ffi::xcb_screen_t);
 
@@ -233,6 +258,12 @@ impl AsRef<XCBScreen> for XCBScreen {
 impl Clone for XCBScreen {
     fn clone(&self) -> XCBScreen {
         unsafe { Self::from_raw_none(self.to_raw_none()) }
+    }
+}
+
+impl fmt::Display for XCBScreen {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "XCBScreen")
     }
 }
 
@@ -369,88 +400,16 @@ impl Clone for XCBVisualType {
     }
 }
 
-#[derive(Debug)]
-pub struct Device(pub *mut ffi::cairo_device_t);
-
-impl Device {
-    pub fn to_raw_none(&self) -> *mut ffi::cairo_device_t {
-        self.0
-    }
-
-    pub unsafe fn from_raw_none(ptr: *mut ffi::cairo_device_t) -> Device {
-        assert!(!ptr.is_null());
-        Device(ptr)
-    }
-
-    pub unsafe fn from_raw_borrow(ptr: *mut ffi::cairo_device_t) -> Device {
-        assert!(!ptr.is_null());
-        Device(ptr)
-    }
-
-    pub unsafe fn from_raw_full(ptr: *mut ffi::cairo_device_t) -> Device {
-        assert!(!ptr.is_null());
-        Device(ptr)
+impl fmt::Display for XCBVisualType {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "XCBVisualType")
     }
 }
 
-#[cfg(feature = "use_glib")]
-impl<'a> ToGlibPtr<'a, *mut ffi::cairo_device_t> for &'a Device {
-    type Storage = &'a Device;
-
-    #[inline]
-    fn to_glib_none(&self) -> Stash<'a, *mut ffi::cairo_device_t, &'a Device> {
-        Stash(self.to_raw_none(), *self)
-    }
-}
-
-#[cfg(feature = "use_glib")]
-impl FromGlibPtrNone<*mut ffi::cairo_device_t> for Device {
-    #[inline]
-    unsafe fn from_glib_none(ptr: *mut ffi::cairo_device_t) -> Device {
-        Self::from_raw_none(ptr)
-    }
-}
-
-#[cfg(feature = "use_glib")]
-impl FromGlibPtrBorrow<*mut ffi::cairo_device_t> for Device {
-    #[inline]
-    unsafe fn from_glib_borrow(ptr: *mut ffi::cairo_device_t) -> Device {
-        Self::from_raw_borrow(ptr)
-    }
-}
-
-#[cfg(feature = "use_glib")]
-impl FromGlibPtrFull<*mut ffi::cairo_device_t> for Device {
-    #[inline]
-    unsafe fn from_glib_full(ptr: *mut ffi::cairo_device_t) -> Device {
-        Self::from_raw_full(ptr)
-    }
-}
-
-impl AsRef<Device> for Device {
-    fn as_ref(&self) -> &Device {
-        self
-    }
-}
-
-impl Clone for Device {
-    fn clone(&self) -> Device {
-        unsafe { Self::from_raw_none(self.to_raw_none()) }
-    }
-}
-
-impl Device {
+impl ::device::Device {
     pub fn get_connection(&self) -> XCBConnection {
         unsafe {
             XCBConnection::from_raw_full(ffi::cairo_xcb_device_get_connection(self.to_raw_none()))
-        }
-    }
-
-    pub fn debug_cap_xrender_version(&self, major_version: i32, minor_version: i32) {
-        unsafe {
-            ffi::cairo_xcb_device_debug_cap_xrender_version(self.to_raw_none(),
-                                                            major_version,
-                                                            minor_version)
         }
     }
 
@@ -459,18 +418,6 @@ impl Device {
             ffi::cairo_xcb_device_debug_cap_xshm_version(self.to_raw_none(),
                                                          major_version,
                                                          minor_version)
-        }
-    }
-
-    pub fn debug_get_precision(&self) -> i32 {
-        unsafe {
-            ffi::cairo_xcb_device_debug_get_precision(self.to_raw_none())
-        }
-    }
-
-    pub fn debug_set_precision(&self, precision: i32) {
-        unsafe {
-            ffi::cairo_xcb_device_debug_set_precision(self.to_raw_none(), precision)
         }
     }
 }

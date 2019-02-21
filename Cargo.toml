@@ -21,11 +21,16 @@ name = "cairo"
 [features]
 purge-lgpl-docs = ["gtk-rs-lgpl-docs"]
 png = ["cairo-sys-rs/png"]
+pdf = ["cairo-sys-rs/pdf"]
+svg = ["cairo-sys-rs/svg"]
+ps = ["cairo-sys-rs/ps"]
 use_glib = ["glib", "glib-sys", "gobject-sys", "cairo-sys-rs/use_glib"]
 embed-lgpl-docs = ["gtk-rs-lgpl-docs"]
-v1_12 = ["cairo-sys-rs/v1_12"]
+v1_14 = ["cairo-sys-rs/v1_14"]
+v1_16 = ["v1_14", "cairo-sys-rs/v1_16"]
 default = ["use_glib"]
 xcb = ["cairo-sys-rs/xcb"]
+xlib = ["cairo-sys-rs/xlib"]
 dox = ["cairo-sys-rs/dox", "glib/dox"]
 
 [build-dependencies.gtk-rs-lgpl-docs]
@@ -47,3 +52,7 @@ optional = true
 [dependencies]
 cairo-sys-rs = "0.7.0"
 libc = "0.2"
+bitflags = "1.0"
+
+[dev-dependencies]
+tempfile = "3.0"

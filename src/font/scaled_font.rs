@@ -1,18 +1,12 @@
 #[cfg(feature = "use_glib")]
 use glib::translate::*;
-#[cfg(feature = "use_glib")]
-use glib_ffi;
-#[cfg(feature = "use_glib")]
-use gobject_ffi;
-use std::ptr;
-#[cfg(feature = "use_glib")]
-use std::mem;
 use ffi;
 use std::ffi::CString;
+use std::ptr;
 
-use ffi::enums::{
+use ::enums::{
     FontType,
-    TextClusterFlags,
+    Status,
 };
 use ::matrices::{
     Matrix,
@@ -89,12 +83,12 @@ impl ScaledFont {
         let status = unsafe {
             ffi::cairo_scaled_font_status(self.to_raw_none())
         };
-        status.ensure_valid()
+        Status::from(status).ensure_valid()
     }
 
     pub fn get_type(&self) -> FontType {
         unsafe {
-            ffi::cairo_scaled_font_get_type(self.to_raw_none())
+            FontType::from(ffi::cairo_scaled_font_get_type(self.to_raw_none()))
         }
     }
 
@@ -165,7 +159,7 @@ impl ScaledFont {
             let mut glyph_count = 0i32;
             let mut clusters_ptr: *mut TextCluster = ptr::null_mut();
             let mut cluster_count = 0i32;
-            let mut cluster_flags = TextClusterFlags::None;
+            let mut cluster_flags = 0i32;
             let text_length = text.len() as i32;
             let text = CString::new(text).unwrap();
 
@@ -181,7 +175,7 @@ impl ScaledFont {
                 &mut cluster_count,
                 &mut cluster_flags);
 
-            status.ensure_valid();
+            Status::from(status).ensure_valid();
 
             let glyph_count = glyph_count as usize;
             let glyphs: Vec<Glyph> = {

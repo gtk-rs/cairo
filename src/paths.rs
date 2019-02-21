@@ -3,9 +3,13 @@
 // Licensed under the MIT license, see the LICENSE file or <http://opensource.org/licenses/MIT>
 
 use std::iter::Iterator;
-use ffi::enums::PathDataType;
+use ::enums::{
+    PathDataType,
+    Status,
+};
 use ffi::cairo_path_t;
 use ffi;
+use std::fmt;
 
 #[derive(Debug)]
 pub struct Path(*mut cairo_path_t);
@@ -18,7 +22,7 @@ impl Path {
     pub fn ensure_status(&self) {
         unsafe {
             let ptr: *mut cairo_path_t = self.as_ptr();
-            (*ptr).status.ensure_valid()
+            Status::from((*ptr).status).ensure_valid()
         }
     }
 
@@ -33,12 +37,16 @@ impl Path {
             let ptr: *mut cairo_path_t = self.as_ptr();
             let length = (*ptr).num_data as usize;
             let data_ptr = (*ptr).data;
-            let data_vec = if length != 0 && !data_ptr.is_null() { slice::from_raw_parts(data_ptr, length) } else { &[] };
+            let data_vec = if length != 0 && !data_ptr.is_null() {
+                slice::from_raw_parts(data_ptr, length)
+            } else {
+                &[]
+            };
 
             PathSegments {
                 data: data_vec,
                 i: 0,
-                num_data: length
+                num_data: length,
             }
         }
     }
@@ -52,12 +60,29 @@ impl Drop for Path {
     }
 }
 
+impl fmt::Display for Path {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "Path")
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum PathSegment {
-    MoveTo((f64,f64)),
-    LineTo((f64,f64)),
-    CurveTo((f64, f64),(f64, f64),(f64, f64)),
-    ClosePath
+    MoveTo((f64, f64)),
+    LineTo((f64, f64)),
+    CurveTo((f64, f64), (f64, f64), (f64, f64)),
+    ClosePath,
+}
+
+impl fmt::Display for PathSegment {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "PathSegment::{}", match *self {
+            PathSegment::MoveTo(_) => "MoveTo",
+            PathSegment::LineTo(_) => "LineTo",
+            PathSegment::CurveTo(_, _, _) => "CurveTo",
+            PathSegment::ClosePath => "ClosePath"
+        })
+    }
 }
 
 pub struct PathSegments<'a> {
@@ -75,20 +100,27 @@ impl<'a> Iterator for PathSegments<'a> {
         }
 
         unsafe {
-            let res = match self.data[self.i].header.data_type {
+            let res = match PathDataType::from(self.data[self.i].header.data_type) {
                 PathDataType::MoveTo => PathSegment::MoveTo(to_tuple(&self.data[self.i + 1].point)),
                 PathDataType::LineTo => PathSegment::LineTo(to_tuple(&self.data[self.i + 1].point)),
                 PathDataType::CurveTo => {
                     PathSegment::CurveTo(to_tuple(&self.data[self.i + 1].point),
                         to_tuple(&self.data[self.i + 2].point), to_tuple(&self.data[self.i + 3].point))
                 }
-                PathDataType::ClosePath => PathSegment::ClosePath
+                PathDataType::ClosePath => PathSegment::ClosePath,
+                PathDataType::__Unknown(x) => panic!("Unknown value: {}", x),
             };
 
             self.i += self.data[self.i].header.length as usize;
 
             Some(res)
         }
+    }
+}
+
+impl<'a> fmt::Display for PathSegments<'a> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "PathSegments")
     }
 }
 
@@ -101,7 +133,7 @@ mod tests {
     use super::*;
     use context::*;
     use image_surface::*;
-    use ffi::enums::Format;
+    use ::enums::Format;
 
     fn make_cr() -> Context {
         let surface = ImageSurface::create(Format::Rgb24, 1, 1).unwrap ();

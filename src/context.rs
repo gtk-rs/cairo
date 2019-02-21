@@ -6,16 +6,23 @@
 use glib::translate::*;
 use libc::c_int;
 use std::ffi::CString;
+use std::fmt;
 use std::ops;
+use std::slice;
 use ::paths::Path;
 use ::font::{TextExtents, TextCluster, FontExtents, ScaledFont, FontOptions, FontFace, Glyph};
 use ::matrices::{Matrix, MatrixTrait};
-use ffi::enums::{
+use ::{
+    Antialias,
+    Content,
+    FillRule,
     FontSlant,
     FontWeight,
-    TextClusterFlags,
+    LineCap,
+    LineJoin,
     Operator,
-    Content,
+    TextClusterFlags,
+    Status,
 };
 use Rectangle;
 use ffi;
@@ -24,7 +31,6 @@ use ffi::{
     cairo_t,
     cairo_rectangle_list_t,
 };
-use ffi::enums::{Status, Antialias, LineCap, LineJoin, FillRule};
 use ::patterns::{Pattern, PatternTrait};
 use surface::Surface;
 
@@ -36,10 +42,8 @@ impl ops::Deref for RectangleList {
     type Target = [Rectangle];
 
     fn deref(&self) -> &[Rectangle] {
-        use std::slice;
-
         unsafe {
-            let ptr = (*self.ptr).rectangles;
+            let ptr = (*self.ptr).rectangles as *mut Rectangle;
             let len = (*self.ptr).num_rectangles;
 
             if ptr.is_null() || len == 0 {
@@ -56,6 +60,22 @@ impl Drop for RectangleList {
         unsafe {
             ffi::cairo_rectangle_list_destroy(self.ptr);
         }
+    }
+}
+
+impl fmt::Debug for RectangleList {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        unsafe {
+            f.debug_tuple("RectangleList")
+             .field(&*self)
+             .finish()
+        }
+    }
+}
+
+impl fmt::Display for RectangleList {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "RectangleList")
     }
 }
 
@@ -162,7 +182,7 @@ impl Context {
 
     pub fn status(&self) -> Status {
         unsafe {
-            ffi::cairo_status(self.0)
+            Status::from(ffi::cairo_status(self.0))
         }
     }
 
@@ -192,9 +212,9 @@ impl Context {
         }
     }
 
-    pub fn push_group_with_content(&self, content: Content){
+    pub fn push_group_with_content(&self, content: Content) {
         unsafe {
-            ffi::cairo_push_group_with_content(self.0, content)
+            ffi::cairo_push_group_with_content(self.0, content.into())
         }
     }
 
@@ -247,14 +267,14 @@ impl Context {
 
     pub fn set_antialias(&self, antialias : Antialias) {
         unsafe {
-            ffi::cairo_set_antialias(self.0, antialias)
+            ffi::cairo_set_antialias(self.0, antialias.into())
         }
         self.ensure_status()
     }
 
     pub fn get_antialias(&self) -> Antialias {
         unsafe {
-            ffi::cairo_get_antialias(self.0)
+            Antialias::from(ffi::cairo_get_antialias(self.0))
         }
     }
 
@@ -295,40 +315,40 @@ impl Context {
 
     pub fn set_fill_rule(&self, fill_rule : FillRule) {
         unsafe {
-            ffi::cairo_set_fill_rule(self.0, fill_rule);
+            ffi::cairo_set_fill_rule(self.0, fill_rule.into());
         }
         self.ensure_status();
     }
 
     pub fn get_fill_rule(&self) -> FillRule {
         unsafe {
-            ffi::cairo_get_fill_rule(self.0)
+            FillRule::from(ffi::cairo_get_fill_rule(self.0))
         }
     }
 
     pub fn set_line_cap(&self, arg: LineCap) {
         unsafe {
-            ffi::cairo_set_line_cap(self.0, arg)
+            ffi::cairo_set_line_cap(self.0, arg.into())
         }
         self.ensure_status();
     }
 
     pub fn get_line_cap(&self) -> LineCap {
         unsafe {
-            ffi::cairo_get_line_cap(self.0)
+            LineCap::from(ffi::cairo_get_line_cap(self.0))
         }
     }
 
     pub fn set_line_join(&self, arg: LineJoin) {
         unsafe {
-            ffi::cairo_set_line_join(self.0, arg)
+            ffi::cairo_set_line_join(self.0, arg.into())
         }
         self.ensure_status();
     }
 
     pub fn get_line_join(&self) -> LineJoin {
         unsafe {
-            ffi::cairo_get_line_join(self.0)
+            LineJoin::from(ffi::cairo_get_line_join(self.0))
         }
     }
 
@@ -360,13 +380,13 @@ impl Context {
 
     pub fn set_operator(&self, op: Operator) {
         unsafe {
-            ffi::cairo_set_operator(self.0, op);
+            ffi::cairo_set_operator(self.0, op.into());
         }
     }
 
     pub fn get_operator(&self) -> Operator {
         unsafe {
-            ffi::cairo_get_operator(self.0)
+            Operator::from(ffi::cairo_get_operator(self.0))
         }
     }
 
@@ -424,7 +444,7 @@ impl Context {
         unsafe {
             let rectangle_list = ffi::cairo_copy_clip_rectangle_list(self.0);
 
-            (*rectangle_list).status.ensure_valid();
+            Status::from((*rectangle_list).status).ensure_valid();
 
             RectangleList {
                 ptr: rectangle_list,
@@ -613,7 +633,7 @@ impl Context {
     pub fn select_font_face(&self, family: &str, slant: FontSlant, weight: FontWeight) {
         unsafe {
             let family = CString::new(family).unwrap();
-            ffi::cairo_select_font_face(self.0, family.as_ptr(), slant, weight)
+            ffi::cairo_select_font_face(self.0, family.as_ptr(), slant.into(), weight.into())
         }
     }
 
@@ -703,7 +723,7 @@ impl Context {
                                         glyphs.len() as c_int,
                                         clusters.as_ptr(),
                                         clusters.len() as c_int,
-                                        cluster_flags)
+                                        cluster_flags.into())
         }
     }
 
@@ -876,6 +896,41 @@ impl Context {
             ffi::cairo_rel_move_to(self.0, dx, dy)
         }
     }
+
+    pub fn path_extents(&self) -> (f64, f64, f64, f64) {
+        let mut x1: f64 = 0.0;
+        let mut y1: f64 = 0.0;
+        let mut x2: f64 = 0.0;
+        let mut y2: f64 = 0.0;
+
+        unsafe {
+            ffi::cairo_path_extents(self.0, &mut x1, &mut y1, &mut x2, &mut y2);
+        }
+        (x1, y1, x2, y2)
+    }
+
+    #[cfg(any(feature = "v1_16", feature = "dox"))]
+    pub fn tag_begin(&self, tag_name: &str, attributes: &str) {
+        unsafe {
+            let tag_name = CString::new(tag_name).unwrap();
+            let attributes = CString::new(attributes).unwrap();
+            ffi::cairo_tag_begin(self.0, tag_name.as_ptr(), attributes.as_ptr())
+        }
+    }
+
+    #[cfg(any(feature = "v1_16", feature = "dox"))]
+    pub fn tag_end(&self, tag_name: &str) {
+        unsafe {
+            let tag_name = CString::new(tag_name).unwrap();
+            ffi::cairo_tag_end(self.0, tag_name.as_ptr())
+        }
+    }
+}
+
+impl fmt::Display for Context {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "Context")
+    }
 }
 
 #[cfg(test)]
@@ -883,7 +938,7 @@ mod tests {
     use super::*;
     use ::image_surface::{ImageSurface};
     use ::patterns::{LinearGradient};
-    use ffi::enums::{Format};
+    use ::enums::{Format};
 
     fn create_ctx() -> Context {
         let surface = ImageSurface::create(Format::ARgb32, 10, 10).unwrap();

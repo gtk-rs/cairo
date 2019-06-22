@@ -2,9 +2,10 @@
 // See the COPYRIGHT file at the top-level directory of this distribution.
 // Licensed under the MIT license, see the LICENSE file or <http://opensource.org/licenses/MIT>
 
+use enums::SurfaceType;
+use ffi;
 #[cfg(feature = "use_glib")]
 use glib::translate::*;
-use ffi;
 use std::fmt;
 
 use surface::Surface;
@@ -97,12 +98,6 @@ impl FromGlibPtrFull<*mut ffi::xcb_connection_t> for XCBConnection {
     }
 }
 
-impl AsRef<XCBConnection> for XCBConnection {
-    fn as_ref(&self) -> &XCBConnection {
-        self
-    }
-}
-
 impl Clone for XCBConnection {
     fn clone(&self) -> XCBConnection {
         unsafe { Self::from_raw_none(self.to_raw_none()) }
@@ -119,7 +114,7 @@ impl fmt::Display for XCBConnection {
 pub struct XCBRenderPictFormInfo(pub *mut ffi::xcb_render_pictforminfo_t);
 
 impl XCBRenderPictFormInfo {
-    pub fn to_raw_none(&self) ->  *mut ffi::xcb_render_pictforminfo_t {
+    pub fn to_raw_none(&self) -> *mut ffi::xcb_render_pictforminfo_t {
         self.0
     }
 
@@ -128,7 +123,9 @@ impl XCBRenderPictFormInfo {
         XCBRenderPictFormInfo(ptr)
     }
 
-    pub unsafe fn from_raw_borrow(ptr: *mut ffi::xcb_render_pictforminfo_t) -> XCBRenderPictFormInfo {
+    pub unsafe fn from_raw_borrow(
+        ptr: *mut ffi::xcb_render_pictforminfo_t,
+    ) -> XCBRenderPictFormInfo {
         assert!(!ptr.is_null());
         XCBRenderPictFormInfo(ptr)
     }
@@ -144,7 +141,9 @@ impl<'a> ToGlibPtr<'a, *mut ffi::xcb_render_pictforminfo_t> for &'a XCBRenderPic
     type Storage = &'a XCBRenderPictFormInfo;
 
     #[inline]
-    fn to_glib_none(&self) -> Stash<'a, *mut ffi::xcb_render_pictforminfo_t, &'a XCBRenderPictFormInfo> {
+    fn to_glib_none(
+        &self,
+    ) -> Stash<'a, *mut ffi::xcb_render_pictforminfo_t, &'a XCBRenderPictFormInfo> {
         Stash(self.to_raw_none(), *self)
     }
 }
@@ -170,12 +169,6 @@ impl FromGlibPtrFull<*mut ffi::xcb_render_pictforminfo_t> for XCBRenderPictFormI
     #[inline]
     unsafe fn from_glib_full(ptr: *mut ffi::xcb_render_pictforminfo_t) -> XCBRenderPictFormInfo {
         Self::from_raw_full(ptr)
-    }
-}
-
-impl AsRef<XCBRenderPictFormInfo> for XCBRenderPictFormInfo {
-    fn as_ref(&self) -> &XCBRenderPictFormInfo {
-        self
     }
 }
 
@@ -249,12 +242,6 @@ impl FromGlibPtrFull<*mut ffi::xcb_screen_t> for XCBScreen {
     }
 }
 
-impl AsRef<XCBScreen> for XCBScreen {
-    fn as_ref(&self) -> &XCBScreen {
-        self
-    }
-}
-
 impl Clone for XCBScreen {
     fn clone(&self) -> XCBScreen {
         unsafe { Self::from_raw_none(self.to_raw_none()) }
@@ -267,65 +254,101 @@ impl fmt::Display for XCBScreen {
     }
 }
 
+pub struct XCBSurface(Surface);
 
-pub trait XCBSurface {
-    fn create(connection: &XCBConnection, drawable: &XCBDrawable, visual: &XCBVisualType,
-              width: i32, height: i32) -> Surface;
-    fn create_for_bitmap(connection: &XCBConnection, screen: &XCBScreen, bitmap: &XCBPixmap,
-                         width: i32, height: i32) -> Surface;
-    fn create_with_xrender_format(connection: &XCBConnection, screen: &XCBScreen,
-                                  bitmap: &XCBPixmap, format: &XCBRenderPictFormInfo,
-                                  width: i32, height: i32) -> Surface;
-    fn set_size(&self, width: i32, height: i32);
-    fn set_drawable(&self, drawable: &XCBDrawable, width: i32, height: i32);
+impl std::ops::Deref for XCBSurface {
+    type Target = Surface;
+
+    fn deref(&self) -> &Surface {
+        &self.0
+    }
 }
 
-impl XCBSurface for Surface {
-    fn create(connection: &XCBConnection, drawable: &XCBDrawable, visual: &XCBVisualType,
-              width: i32, height: i32) -> Surface {
+impl std::convert::TryFrom<Surface> for XCBSurface {
+    type Error = Surface;
+
+    fn try_from(surface: Surface) -> Result<Self, Surface> {
+        if surface.get_type() == SurfaceType::Xcb {
+            Ok(Self(surface))
+        } else {
+            Err(surface)
+        }
+    }
+}
+
+impl XCBSurface {
+    pub fn create(
+        connection: &XCBConnection,
+        drawable: &XCBDrawable,
+        visual: &XCBVisualType,
+        width: i32,
+        height: i32,
+    ) -> Self {
         unsafe {
-            Surface::from_raw_full(ffi::cairo_xcb_surface_create(connection.to_raw_none(),
-                                                                 drawable.to_raw_none(),
-                                                                 visual.to_raw_none(),
-                                                                 width,
-                                                                 height))
+            Self(Surface::from_raw_full(ffi::cairo_xcb_surface_create(
+                connection.to_raw_none(),
+                drawable.to_raw_none(),
+                visual.to_raw_none(),
+                width,
+                height,
+            )))
         }
     }
 
-    fn create_for_bitmap(connection: &XCBConnection, screen: &XCBScreen, bitmap: &XCBPixmap,
-                         width: i32, height: i32) -> Surface {
+    pub fn create_for_bitmap(
+        connection: &XCBConnection,
+        screen: &XCBScreen,
+        bitmap: &XCBPixmap,
+        width: i32,
+        height: i32,
+    ) -> Self {
         unsafe {
-            Surface::from_raw_full(ffi::cairo_xcb_surface_create_for_bitmap(connection.to_raw_none(),
-                                                                            screen.to_raw_none(),
-                                                                            bitmap.to_raw_none(),
-                                                                            width,
-                                                                            height))
+            Self(Surface::from_raw_full(
+                ffi::cairo_xcb_surface_create_for_bitmap(
+                    connection.to_raw_none(),
+                    screen.to_raw_none(),
+                    bitmap.to_raw_none(),
+                    width,
+                    height,
+                ),
+            ))
         }
     }
 
-    fn create_with_xrender_format(connection: &XCBConnection, screen: &XCBScreen,
-                                  bitmap: &XCBPixmap, format: &XCBRenderPictFormInfo,
-                                  width: i32, height: i32) -> Surface {
+    pub fn create_with_xrender_format(
+        connection: &XCBConnection,
+        screen: &XCBScreen,
+        bitmap: &XCBPixmap,
+        format: &XCBRenderPictFormInfo,
+        width: i32,
+        height: i32,
+    ) -> Self {
         unsafe {
-            Surface::from_raw_full(ffi::cairo_xcb_surface_create_with_xrender_format(connection.to_raw_none(),
-                                                                                     screen.to_raw_none(),
-                                                                                     bitmap.to_raw_none(),
-                                                                                     format.to_raw_none(),
-                                                                                     width,
-                                                                                     height))
+            Self(Surface::from_raw_full(
+                ffi::cairo_xcb_surface_create_with_xrender_format(
+                    connection.to_raw_none(),
+                    screen.to_raw_none(),
+                    bitmap.to_raw_none(),
+                    format.to_raw_none(),
+                    width,
+                    height,
+                ),
+            ))
         }
     }
 
-    fn set_size(self: &Surface, width: i32, height: i32) {
-        unsafe {
-            ffi::cairo_xcb_surface_set_size(self.to_raw_none(), width, height)
-        }
+    pub fn set_size(&self, width: i32, height: i32) {
+        unsafe { ffi::cairo_xcb_surface_set_size(self.to_raw_none(), width, height) }
     }
 
-    fn set_drawable(self: &Surface, drawable: &XCBDrawable, width: i32, height: i32) {
+    pub fn set_drawable(&self, drawable: &XCBDrawable, width: i32, height: i32) {
         unsafe {
-            ffi::cairo_xcb_surface_set_drawable(self.to_raw_none(), drawable.to_raw_none(),
-                                                width, height)
+            ffi::cairo_xcb_surface_set_drawable(
+                self.to_raw_none(),
+                drawable.to_raw_none(),
+                width,
+                height,
+            )
         }
     }
 }
@@ -388,12 +411,6 @@ impl FromGlibPtrFull<*mut ffi::xcb_visualtype_t> for XCBVisualType {
     }
 }
 
-impl AsRef<XCBVisualType> for XCBVisualType {
-    fn as_ref(&self) -> &XCBVisualType {
-        self
-    }
-}
-
 impl Clone for XCBVisualType {
     fn clone(&self) -> XCBVisualType {
         unsafe { Self::from_raw_none(self.to_raw_none()) }
@@ -415,9 +432,11 @@ impl ::device::Device {
 
     pub fn debug_cap_xshm_version(&self, major_version: i32, minor_version: i32) {
         unsafe {
-            ffi::cairo_xcb_device_debug_cap_xshm_version(self.to_raw_none(),
-                                                         major_version,
-                                                         minor_version)
+            ffi::cairo_xcb_device_debug_cap_xshm_version(
+                self.to_raw_none(),
+                major_version,
+                minor_version,
+            )
         }
     }
 }

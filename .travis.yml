@@ -15,10 +15,10 @@ matrix:
       rust: beta
       env: GTK=3.24 FEATURES=
     - os: linux
-      rust: 1.34.0
+      rust: 1.39.0
       env: GTK=3.14 FEATURES=
     - os: linux
-      rust: 1.34.0
+      rust: 1.39.0
       env: GTK=3.24 FEATURES=
     - os: osx
       rust: nightly
@@ -47,11 +47,12 @@ addons:
 before_install:
   - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew update; fi
   - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew install gtk+3 cairo atk; fi
-  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then
-    export PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:/opt/X11/lib/pkgconfig:/usr/local/opt/libffi/lib/pkgconfig;
-    fi
 script:
   - rustc --version
+  - if [ "$TRAVIS_RUST_VERSION" == "stable" ] && [ "$GTK" == "3.14" ]; then
+    rustup component add rustfmt;
+    cargo fmt --all -- --check;
+    fi
   - cargo doc --features "dox,embed-lgpl-docs"
   - cargo test --features "$FEATURES,png,pdf,svg,pdf,xcb"
   - cargo test --no-default-features --features "$FEATURES,png,pdf,svg,pdf,xcb"

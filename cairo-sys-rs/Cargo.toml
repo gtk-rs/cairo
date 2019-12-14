@@ -5,7 +5,7 @@ links = "cairo"
 authors = ["The Gtk-rs Project Developers"]
 homepage = "http://gtk-rs.org/"
 description = "FFI bindings to libcairo"
-version = "0.9.0"
+version = "0.9.1"
 keywords = ["cairo", "ffi", "gtk-rs", "gnome"]
 repository = "https://github.com/gtk-rs/cairo"
 build = "build.rs"
@@ -24,13 +24,14 @@ svg = []
 ps = []
 xcb = []
 use_glib = ["glib-sys"]
+win32-surface = ["winapi"]
 
 [dependencies]
 libc = "0.2"
 
 [dependencies.glib-sys]
 optional = true
-version = "0.9.0"
+version = "0.9.1"
 
 [dependencies.x11]
 optional = true
@@ -38,7 +39,7 @@ version = "2.16"
 features = ["xlib"]
 
 [target.'cfg(windows)'.dependencies]
-winapi = { version = "0.3.2", features = ["windef"] }
+winapi = { version = "0.3.2", features = ["windef"], optional = true }
 
 [build-dependencies]
 pkg-config = "0.3.7"

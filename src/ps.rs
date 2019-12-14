@@ -2,19 +2,23 @@
 // See the COPYRIGHT file at the top-level directory of this distribution.
 // Licensed under the MIT license, see the LICENSE file or <http://opensource.org/licenses/MIT>
 
+use std::convert::TryFrom;
 use std::ffi::{CStr, CString};
 use std::fmt;
 use std::io;
 use std::mem;
 use std::ops::Deref;
 use std::path::Path;
+use std::ptr;
 
-use enums::PsLevel;
+use enums::{PsLevel, SurfaceType};
 use ffi;
 use surface::Surface;
 
 #[cfg(feature = "use_glib")]
 use glib::translate::*;
+
+use Status;
 
 impl PsLevel {
     pub fn as_str(self) -> Option<&'static str> {
@@ -26,77 +30,25 @@ impl PsLevel {
     }
 }
 
-#[derive(Debug)]
-pub struct PsSurface {
-    inner: Surface,
-}
-
-#[cfg(feature = "use_glib")]
-impl<'a> ToGlibPtr<'a, *mut ffi::cairo_surface_t> for PsSurface {
-    type Storage = &'a Surface;
-
-    #[inline]
-    fn to_glib_none(&'a self) -> Stash<'a, *mut ffi::cairo_surface_t, Self> {
-        let stash = self.inner.to_glib_none();
-        Stash(stash.0, stash.1)
-    }
-}
-
-#[cfg(feature = "use_glib")]
-impl FromGlibPtrNone<*mut ffi::cairo_surface_t> for PsSurface {
-    #[inline]
-    unsafe fn from_glib_none(ptr: *mut ffi::cairo_surface_t) -> PsSurface {
-        PsSurface {
-            inner: from_glib_none(ptr),
-        }
-    }
-}
-
-#[cfg(feature = "use_glib")]
-impl FromGlibPtrBorrow<*mut ffi::cairo_surface_t> for PsSurface {
-    #[inline]
-    unsafe fn from_glib_borrow(ptr: *mut ffi::cairo_surface_t) -> PsSurface {
-        PsSurface {
-            inner: from_glib_borrow(ptr),
-        }
-    }
-}
-
-#[cfg(feature = "use_glib")]
-impl FromGlibPtrFull<*mut ffi::cairo_surface_t> for PsSurface {
-    #[inline]
-    unsafe fn from_glib_full(ptr: *mut ffi::cairo_surface_t) -> PsSurface {
-        PsSurface {
-            inner: Surface::from_raw_full(ptr),
-        }
-    }
-}
+declare_surface!(PsSurface, SurfaceType::Ps);
 
 impl PsSurface {
-    pub fn new<P: AsRef<Path>>(width: f64, height: f64, path: P) -> Self {
+    pub fn new<P: AsRef<Path>>(width: f64, height: f64, path: P) -> Result<PsSurface, Status> {
         let path = path.as_ref().to_string_lossy().into_owned();
         let path = CString::new(path).unwrap();
 
-        unsafe {
-            Self {
-                inner: Surface::from_raw_full(ffi::cairo_ps_surface_create(
-                    path.as_ptr(),
-                    width,
-                    height,
-                )),
-            }
-        }
+        unsafe { Self::from_raw_full(ffi::cairo_ps_surface_create(path.as_ptr(), width, height)) }
     }
 
     for_stream_constructors!(cairo_ps_surface_create_for_stream);
 
     pub fn get_levels() -> impl Iterator<Item = PsLevel> {
         let lvls_slice = unsafe {
-            let mut vers_ptr: *mut ffi::cairo_ps_level_t = mem::uninitialized();
-            let mut num_vers = 0;
-            ffi::cairo_ps_get_levels(&mut vers_ptr as _, &mut num_vers as _);
+            let mut vers_ptr = ptr::null_mut();
+            let mut num_vers = mem::MaybeUninit::uninit();
+            ffi::cairo_ps_get_levels(&mut vers_ptr, num_vers.as_mut_ptr());
 
-            std::slice::from_raw_parts(vers_ptr, num_vers as _)
+            std::slice::from_raw_parts(vers_ptr, num_vers.assume_init() as _)
         };
 
         lvls_slice.iter().map(|v| PsLevel::from(*v))
@@ -104,57 +56,43 @@ impl PsSurface {
 
     pub fn restrict(&self, level: PsLevel) {
         unsafe {
-            ffi::cairo_ps_surface_restrict_to_level(self.inner.to_raw_none(), level.into());
+            ffi::cairo_ps_surface_restrict_to_level(self.0.to_raw_none(), level.into());
         }
     }
 
     pub fn get_eps(&self) -> bool {
-        unsafe { ffi::cairo_ps_surface_get_eps(self.inner.to_raw_none()).as_bool() }
+        unsafe { ffi::cairo_ps_surface_get_eps(self.0.to_raw_none()).as_bool() }
     }
 
     pub fn set_eps(&self, eps: bool) {
         unsafe {
-            ffi::cairo_ps_surface_set_eps(self.inner.to_raw_none(), eps.into());
+            ffi::cairo_ps_surface_set_eps(self.0.to_raw_none(), eps.into());
         }
     }
 
     pub fn set_size(&self, width: f64, height: f64) {
         unsafe {
-            ffi::cairo_ps_surface_set_size(self.inner.to_raw_none(), width, height);
+            ffi::cairo_ps_surface_set_size(self.0.to_raw_none(), width, height);
         }
     }
 
     pub fn cairo_ps_surface_dsc_begin_setup(&self) {
         unsafe {
-            ffi::cairo_ps_surface_dsc_begin_setup(self.inner.to_raw_none());
+            ffi::cairo_ps_surface_dsc_begin_setup(self.0.to_raw_none());
         }
     }
 
     pub fn cairo_ps_surface_dsc_begin_page_setup(&self) {
         unsafe {
-            ffi::cairo_ps_surface_dsc_begin_page_setup(self.inner.to_raw_none());
+            ffi::cairo_ps_surface_dsc_begin_page_setup(self.0.to_raw_none());
         }
     }
 
     pub fn cairo_ps_surface_dsc_comment(&self, comment: &str) {
         let comment = CString::new(comment).unwrap();
         unsafe {
-            ffi::cairo_ps_surface_dsc_comment(self.inner.to_raw_none(), comment.as_ptr());
+            ffi::cairo_ps_surface_dsc_comment(self.0.to_raw_none(), comment.as_ptr());
         }
-    }
-}
-
-impl Deref for PsSurface {
-    type Target = Surface;
-
-    fn deref(&self) -> &Surface {
-        &self.inner
-    }
-}
-
-impl fmt::Display for PsSurface {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "PsSurface")
     }
 }
 
@@ -186,7 +124,7 @@ mod test {
     fn draw_in_buffer() -> Vec<u8> {
         let buffer: Vec<u8> = vec![];
 
-        let surface = PsSurface::for_stream(100., 100., buffer);
+        let surface = PsSurface::for_stream(100., 100., buffer).unwrap();
         draw(&surface);
         *surface.finish_output_stream().unwrap().downcast().unwrap()
     }
@@ -205,7 +143,7 @@ mod test {
     #[test]
     fn eps() {
         let buffer: Vec<u8> = vec![];
-        let surface = PsSurface::for_stream(100., 100., buffer);
+        let surface = PsSurface::for_stream(100., 100., buffer).unwrap();
         surface.set_eps(true);
         assert_eq!(surface.get_eps(), true);
     }
@@ -213,7 +151,7 @@ mod test {
     #[test]
     #[cfg(unix)]
     fn file() {
-        let surface = PsSurface::new(100., 100., "/dev/null");
+        let surface = PsSurface::new(100., 100., "/dev/null").unwrap();
         draw(&surface);
         surface.finish();
     }
@@ -221,7 +159,7 @@ mod test {
     #[test]
     fn writer() {
         let file = tempfile().expect("tempfile failed");
-        let surface = PsSurface::for_stream(100., 100., file);
+        let surface = PsSurface::for_stream(100., 100., file).unwrap();
 
         draw(&surface);
         let stream = surface.finish_output_stream().unwrap();
@@ -235,7 +173,7 @@ mod test {
     #[test]
     fn ref_writer() {
         let mut file = tempfile().expect("tempfile failed");
-        let surface = unsafe { PsSurface::for_raw_stream(100., 100., &mut file) };
+        let surface = unsafe { PsSurface::for_raw_stream(100., 100., &mut file).unwrap() };
 
         draw(&surface);
         surface.finish_output_stream().unwrap();
@@ -266,7 +204,7 @@ mod test {
 
         let custom_writer = CustomWriter(0);
 
-        let surface = PsSurface::for_stream(20., 20., custom_writer);
+        let surface = PsSurface::for_stream(20., 20., custom_writer).unwrap();
         surface.set_size(100., 100.);
         draw(&surface);
         let stream = surface.finish_output_stream().unwrap();
@@ -289,7 +227,7 @@ mod test {
             }
         }
 
-        let surface = PsSurface::for_stream(20., 20., PanicWriter);
+        let surface = PsSurface::for_stream(20., 20., PanicWriter).unwrap();
         surface.finish();
         surface
     }

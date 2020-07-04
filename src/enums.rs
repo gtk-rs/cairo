@@ -2,8 +2,7 @@
 // See the COPYRIGHT file at the top-level directory of this distribution.
 // Licensed under the MIT license, see the LICENSE file or <http://opensource.org/licenses/MIT>
 
-use std::ffi::CStr;
-use std::fmt::{self, Debug, Error};
+use std::fmt::{self, Debug};
 use std::i32;
 use std::u32;
 
@@ -46,248 +45,8 @@ macro_rules! gvalue_impl {
     };
 }
 
-#[derive(Clone, Copy, PartialEq, Eq)]
-pub enum Status {
-    Success,
-
-    NoMemory,
-    InvalidRestore,
-    InvalidPopGroup,
-    NoCurrentPoint,
-    InvalidMatrix,
-    InvalidStatus,
-    NullPointer,
-    InvalidString,
-    InvalidPathData,
-    ReadError,
-    WriteError,
-    SurfaceFinished,
-    SurfaceTypeMismatch,
-    PatternTypeMismatch,
-    InvalidContent,
-    InvalidFormat,
-    InvalidVisual,
-    FileNotFound,
-    InvalidDash,
-    InvalidDscComment,
-    InvalidIndex,
-    ClipNotRepresentable,
-    TempFileError,
-    InvalidStride,
-    FontTypeMismatch,
-    UserFontImmutable,
-    UserFontError,
-    NegativeCount,
-    InvalidClusters,
-    InvalidSlant,
-    InvalidWeight,
-    InvalidSize,
-    UserFontNotImplemented,
-    DeviceTypeMismatch,
-    DeviceError,
-    InvalidMeshConstruction,
-    DeviceFinished,
-    // CAIRO_MIME_TYPE_JBIG2_GLOBAL_ID has been used on at least one image but no
-    // image provided `JBig2Global` (Since 1.14)
-    JBig2GlobalMissing,
-    PngError,
-    FreetypeError,
-    Win32GdiError,
-    LastStatus,
-    #[doc(hidden)]
-    __Unknown(i32),
-}
-
-#[doc(hidden)]
-impl Into<ffi::cairo_status_t> for Status {
-    fn into(self) -> ffi::cairo_status_t {
-        match self {
-            Status::Success => ffi::STATUS_SUCCESS,
-            Status::NoMemory => ffi::STATUS_NO_MEMORY,
-            Status::InvalidRestore => ffi::STATUS_INVALID_RESTORE,
-            Status::InvalidPopGroup => ffi::STATUS_INVALID_POP_GROUP,
-            Status::NoCurrentPoint => ffi::STATUS_NO_CURRENT_POINT,
-            Status::InvalidMatrix => ffi::STATUS_INVALID_MATRIX,
-            Status::InvalidStatus => ffi::STATUS_INVALID_STATUS,
-            Status::NullPointer => ffi::STATUS_NULL_POINTER,
-            Status::InvalidString => ffi::STATUS_INVALID_STRING,
-            Status::InvalidPathData => ffi::STATUS_INVALID_PATH_DATA,
-            Status::ReadError => ffi::STATUS_READ_ERROR,
-            Status::WriteError => ffi::STATUS_WRITE_ERROR,
-            Status::SurfaceFinished => ffi::STATUS_SURFACE_FINISHED,
-            Status::SurfaceTypeMismatch => ffi::STATUS_SURFACE_TYPE_MISMATCH,
-            Status::PatternTypeMismatch => ffi::STATUS_PATTERN_TYPE_MISMATCH,
-            Status::InvalidContent => ffi::STATUS_INVALID_CONTENT,
-            Status::InvalidFormat => ffi::STATUS_INVALID_FORMAT,
-            Status::InvalidVisual => ffi::STATUS_INVALID_VISUAL,
-            Status::FileNotFound => ffi::STATUS_FILE_NOT_FOUND,
-            Status::InvalidDash => ffi::STATUS_INVALID_DASH,
-            Status::InvalidDscComment => ffi::STATUS_INVALID_DSC_COMMENT,
-            Status::InvalidIndex => ffi::STATUS_INVALID_INDEX,
-            Status::ClipNotRepresentable => ffi::STATUS_CLIP_NOT_REPRESENTABLE,
-            Status::TempFileError => ffi::STATUS_TEMP_FILE_ERROR,
-            Status::InvalidStride => ffi::STATUS_INVALID_STRIDE,
-            Status::FontTypeMismatch => ffi::STATUS_FONT_TYPE_MISMATCH,
-            Status::UserFontImmutable => ffi::STATUS_USER_FONT_IMMUTABLE,
-            Status::UserFontError => ffi::STATUS_USER_FONT_ERROR,
-            Status::NegativeCount => ffi::STATUS_NEGATIVE_COUNT,
-            Status::InvalidClusters => ffi::STATUS_INVALID_CLUSTERS,
-            Status::InvalidSlant => ffi::STATUS_INVALID_SLANT,
-            Status::InvalidWeight => ffi::STATUS_INVALID_WEIGHT,
-            Status::InvalidSize => ffi::STATUS_INVALID_SIZE,
-            Status::UserFontNotImplemented => ffi::STATUS_USER_FONT_NOT_IMPLEMENTED,
-            Status::DeviceTypeMismatch => ffi::STATUS_DEVICE_TYPE_MISMATCH,
-            Status::DeviceError => ffi::STATUS_DEVICE_ERROR,
-            Status::InvalidMeshConstruction => ffi::STATUS_INVALID_MESH_CONSTRUCTION,
-            Status::DeviceFinished => ffi::STATUS_DEVICE_FINISHED,
-            Status::JBig2GlobalMissing => ffi::STATUS_J_BIG2_GLOBAL_MISSING,
-            Status::PngError => ffi::STATUS_PNG_ERROR,
-            Status::FreetypeError => ffi::STATUS_FREETYPE_ERROR,
-            Status::Win32GdiError => ffi::STATUS_WIN32_GDI_ERROR,
-            Status::LastStatus => ffi::STATUS_LAST_STATUS,
-            Status::__Unknown(value) => value,
-        }
-    }
-}
-
-#[doc(hidden)]
-impl From<ffi::cairo_status_t> for Status {
-    fn from(value: ffi::cairo_status_t) -> Self {
-        match value {
-            ffi::STATUS_SUCCESS => Status::Success,
-            ffi::STATUS_NO_MEMORY => Status::NoMemory,
-            ffi::STATUS_INVALID_RESTORE => Status::InvalidRestore,
-            ffi::STATUS_INVALID_POP_GROUP => Status::InvalidPopGroup,
-            ffi::STATUS_NO_CURRENT_POINT => Status::NoCurrentPoint,
-            ffi::STATUS_INVALID_MATRIX => Status::InvalidMatrix,
-            ffi::STATUS_INVALID_STATUS => Status::InvalidStatus,
-            ffi::STATUS_NULL_POINTER => Status::NullPointer,
-            ffi::STATUS_INVALID_STRING => Status::InvalidString,
-            ffi::STATUS_INVALID_PATH_DATA => Status::InvalidPathData,
-            ffi::STATUS_READ_ERROR => Status::ReadError,
-            ffi::STATUS_WRITE_ERROR => Status::WriteError,
-            ffi::STATUS_SURFACE_FINISHED => Status::SurfaceFinished,
-            ffi::STATUS_SURFACE_TYPE_MISMATCH => Status::SurfaceTypeMismatch,
-            ffi::STATUS_PATTERN_TYPE_MISMATCH => Status::PatternTypeMismatch,
-            ffi::STATUS_INVALID_CONTENT => Status::InvalidContent,
-            ffi::STATUS_INVALID_FORMAT => Status::InvalidFormat,
-            ffi::STATUS_INVALID_VISUAL => Status::InvalidVisual,
-            ffi::STATUS_FILE_NOT_FOUND => Status::FileNotFound,
-            ffi::STATUS_INVALID_DASH => Status::InvalidDash,
-            ffi::STATUS_INVALID_DSC_COMMENT => Status::InvalidDscComment,
-            ffi::STATUS_INVALID_INDEX => Status::InvalidIndex,
-            ffi::STATUS_CLIP_NOT_REPRESENTABLE => Status::ClipNotRepresentable,
-            ffi::STATUS_TEMP_FILE_ERROR => Status::TempFileError,
-            ffi::STATUS_INVALID_STRIDE => Status::InvalidStride,
-            ffi::STATUS_FONT_TYPE_MISMATCH => Status::FontTypeMismatch,
-            ffi::STATUS_USER_FONT_IMMUTABLE => Status::UserFontImmutable,
-            ffi::STATUS_USER_FONT_ERROR => Status::UserFontError,
-            ffi::STATUS_NEGATIVE_COUNT => Status::NegativeCount,
-            ffi::STATUS_INVALID_CLUSTERS => Status::InvalidClusters,
-            ffi::STATUS_INVALID_SLANT => Status::InvalidSlant,
-            ffi::STATUS_INVALID_WEIGHT => Status::InvalidWeight,
-            ffi::STATUS_INVALID_SIZE => Status::InvalidSize,
-            ffi::STATUS_USER_FONT_NOT_IMPLEMENTED => Status::UserFontNotImplemented,
-            ffi::STATUS_DEVICE_TYPE_MISMATCH => Status::DeviceTypeMismatch,
-            ffi::STATUS_DEVICE_ERROR => Status::DeviceError,
-            ffi::STATUS_INVALID_MESH_CONSTRUCTION => Status::InvalidMeshConstruction,
-            ffi::STATUS_DEVICE_FINISHED => Status::DeviceFinished,
-            ffi::STATUS_J_BIG2_GLOBAL_MISSING => Status::JBig2GlobalMissing,
-            ffi::STATUS_PNG_ERROR => Status::PngError,
-            ffi::STATUS_FREETYPE_ERROR => Status::FreetypeError,
-            ffi::STATUS_WIN32_GDI_ERROR => Status::Win32GdiError,
-            ffi::STATUS_LAST_STATUS => Status::LastStatus,
-            value => Status::__Unknown(value),
-        }
-    }
-}
-
-impl Debug for Status {
-    fn fmt(&self, formatter: &mut ::std::fmt::Formatter) -> Result<(), Error> {
-        unsafe {
-            let char_ptr = ffi::cairo_status_to_string((*self).into());
-            let tmp = String::from_utf8_lossy(CStr::from_ptr(char_ptr).to_bytes()).into_owned();
-
-            tmp.fmt(formatter)
-        }
-    }
-}
-
-impl fmt::Display for Status {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(
-            f,
-            "Status::{}",
-            match *self {
-                Status::Success => "Success",
-                Status::NoMemory => "NoMemory",
-                Status::InvalidRestore => "InvalidRestore",
-                Status::InvalidPopGroup => "InvalidPopGroup",
-                Status::NoCurrentPoint => "NoCurrentPoint",
-                Status::InvalidMatrix => "InvalidMatrix",
-                Status::InvalidStatus => "InvalidStatus",
-                Status::NullPointer => "NullPointer",
-                Status::InvalidString => "InvalidString",
-                Status::InvalidPathData => "InvalidPathData",
-                Status::ReadError => "ReadError",
-                Status::WriteError => "WriteError",
-                Status::SurfaceFinished => "SurfaceFinished",
-                Status::SurfaceTypeMismatch => "SurfaceTypeMismatch",
-                Status::PatternTypeMismatch => "PatternTypeMismatch",
-                Status::InvalidContent => "InvalidContent",
-                Status::InvalidFormat => "InvalidFormat",
-                Status::InvalidVisual => "InvalidVisual",
-                Status::FileNotFound => "FileNotFound",
-                Status::InvalidDash => "InvalidDash",
-                Status::InvalidDscComment => "InvalidDscComment",
-                Status::InvalidIndex => "InvalidIndex",
-                Status::ClipNotRepresentable => "ClipNotRepresentable",
-                Status::TempFileError => "TempFileError",
-                Status::InvalidStride => "InvalidStride",
-                Status::FontTypeMismatch => "FontTypeMismatch",
-                Status::UserFontImmutable => "UserFontImmutable",
-                Status::UserFontError => "UserFontError",
-                Status::NegativeCount => "NegativeCount",
-                Status::InvalidClusters => "InvalidClusters",
-                Status::InvalidSlant => "InvalidSlant",
-                Status::InvalidWeight => "InvalidWeight",
-                Status::InvalidSize => "InvalidSize",
-                Status::UserFontNotImplemented => "UserFontNotImplemented",
-                Status::DeviceTypeMismatch => "DeviceTypeMismatch",
-                Status::DeviceError => "DeviceError",
-                Status::InvalidMeshConstruction => "InvalidMeshConstruction",
-                Status::DeviceFinished => "DeviceFinished",
-                Status::JBig2GlobalMissing => "JBig2GlobalMissing",
-                Status::PngError => "PngError",
-                Status::FreetypeError => "FreetypeError",
-                Status::Win32GdiError => "Win32GdiError",
-                Status::LastStatus => "LastStatus",
-                _ => "Unknown",
-            }
-        )
-    }
-}
-
-impl Status {
-    pub fn ensure_valid(self) {
-        if self != Status::Success {
-            panic!("Cairo error {:?}", self)
-        }
-    }
-
-    pub(crate) fn to_result<T>(self, obj: T) -> Result<T, Self> {
-        if self == Status::Success {
-            Ok(obj)
-        } else {
-            Err(self)
-        }
-    }
-}
-
-#[cfg(feature = "use_glib")]
-gvalue_impl!(Status, ffi::gobject::cairo_gobject_status_get_type);
-
 #[derive(Clone, PartialEq, PartialOrd, Debug, Copy)]
+#[non_exhaustive]
 pub enum Antialias {
     Default,
 
@@ -359,6 +118,7 @@ impl fmt::Display for Antialias {
 gvalue_impl!(Antialias, ffi::gobject::cairo_gobject_antialias_get_type);
 
 #[derive(Clone, PartialEq, PartialOrd, Debug, Copy)]
+#[non_exhaustive]
 pub enum FillRule {
     Winding,
     EvenOdd,
@@ -406,6 +166,7 @@ impl fmt::Display for FillRule {
 gvalue_impl!(FillRule, ffi::gobject::cairo_gobject_fill_rule_get_type);
 
 #[derive(Clone, PartialEq, PartialOrd, Debug, Copy)]
+#[non_exhaustive]
 pub enum LineCap {
     Butt,
     Round,
@@ -457,6 +218,7 @@ impl fmt::Display for LineCap {
 gvalue_impl!(LineCap, ffi::gobject::cairo_gobject_line_cap_get_type);
 
 #[derive(Clone, PartialEq, PartialOrd, Debug, Copy)]
+#[non_exhaustive]
 pub enum LineJoin {
     Miter,
     Round,
@@ -508,6 +270,7 @@ impl fmt::Display for LineJoin {
 gvalue_impl!(LineJoin, ffi::gobject::cairo_gobject_line_join_get_type);
 
 #[derive(Clone, PartialEq, PartialOrd, Debug, Copy)]
+#[non_exhaustive]
 pub enum Operator {
     Clear,
 
@@ -667,6 +430,7 @@ impl fmt::Display for Operator {
 gvalue_impl!(Operator, ffi::gobject::cairo_gobject_operator_get_type);
 
 #[derive(Clone, PartialEq, PartialOrd, Debug, Copy)]
+#[non_exhaustive]
 pub enum PathDataType {
     MoveTo,
     LineTo,
@@ -725,6 +489,7 @@ gvalue_impl!(
 );
 
 #[derive(Clone, PartialEq, PartialOrd, Debug, Copy)]
+#[non_exhaustive]
 pub enum Content {
     Color,
     Alpha,
@@ -776,6 +541,7 @@ impl fmt::Display for Content {
 gvalue_impl!(Content, ffi::gobject::cairo_gobject_content_get_type);
 
 #[derive(Clone, PartialEq, PartialOrd, Debug, Copy)]
+#[non_exhaustive]
 pub enum Extend {
     None,
     Repeat,
@@ -831,6 +597,7 @@ impl fmt::Display for Extend {
 gvalue_impl!(Extend, ffi::gobject::cairo_gobject_extend_get_type);
 
 #[derive(Clone, PartialEq, PartialOrd, Debug, Copy)]
+#[non_exhaustive]
 pub enum Filter {
     Fast,
     Good,
@@ -894,6 +661,7 @@ impl fmt::Display for Filter {
 gvalue_impl!(Filter, ffi::gobject::cairo_gobject_filter_get_type);
 
 #[derive(Clone, PartialEq, PartialOrd, Debug, Copy)]
+#[non_exhaustive]
 pub enum PatternType {
     Solid,
     Surface,
@@ -960,6 +728,7 @@ gvalue_impl!(
 );
 
 #[derive(Clone, PartialEq, PartialOrd, Debug, Copy)]
+#[non_exhaustive]
 pub enum FontSlant {
     Normal,
     Italic,
@@ -1011,6 +780,7 @@ impl fmt::Display for FontSlant {
 gvalue_impl!(FontSlant, ffi::gobject::cairo_gobject_font_slant_get_type);
 
 #[derive(Clone, PartialEq, PartialOrd, Debug, Copy)]
+#[non_exhaustive]
 pub enum FontWeight {
     Normal,
     Bold,
@@ -1058,6 +828,7 @@ impl fmt::Display for FontWeight {
 gvalue_impl!(FontWeight, ffi::gobject::cairo_gobject_font_weight_get_type);
 
 #[derive(Clone, PartialEq, PartialOrd, Debug, Copy)]
+#[non_exhaustive]
 pub enum TextClusterFlags {
     None,
     Backward,
@@ -1108,6 +879,7 @@ gvalue_impl!(
 );
 
 #[derive(Clone, PartialEq, PartialOrd, Debug, Copy)]
+#[non_exhaustive]
 pub enum FontType {
     FontTypeToy,
     FontTypeFt,
@@ -1167,6 +939,7 @@ impl fmt::Display for FontType {
 gvalue_impl!(FontType, ffi::gobject::cairo_gobject_font_type_get_type);
 
 #[derive(Clone, PartialEq, PartialOrd, Debug, Copy)]
+#[non_exhaustive]
 pub enum SubpixelOrder {
     Default,
     Rgb,
@@ -1229,6 +1002,7 @@ gvalue_impl!(
 );
 
 #[derive(Clone, PartialEq, PartialOrd, Debug, Copy)]
+#[non_exhaustive]
 pub enum HintStyle {
     Default,
     None,
@@ -1288,6 +1062,7 @@ impl fmt::Display for HintStyle {
 gvalue_impl!(HintStyle, ffi::gobject::cairo_gobject_hint_style_get_type);
 
 #[derive(Clone, PartialEq, PartialOrd, Debug, Copy)]
+#[non_exhaustive]
 pub enum HintMetrics {
     Default,
     Off,
@@ -1342,6 +1117,7 @@ gvalue_impl!(
 );
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum SurfaceType {
     Image,
     Pdf,
@@ -1485,6 +1261,7 @@ gvalue_impl!(
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[cfg(any(all(feature = "svg", feature = "v1_16"), feature = "dox"))]
+#[non_exhaustive]
 pub enum SvgUnit {
     User,
     Em,
@@ -1564,6 +1341,7 @@ impl fmt::Display for SvgUnit {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum Format {
     Invalid,
     ARgb32,
@@ -1645,6 +1423,7 @@ impl Format {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum RegionOverlap {
     In,
     Out,
@@ -1708,6 +1487,7 @@ bitflags! {
 
 #[cfg(any(feature = "pdf", feature = "dox"))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum PdfMetadata {
     Title,
     Author,
@@ -1776,6 +1556,7 @@ impl fmt::Display for PdfMetadata {
 
 #[cfg(any(feature = "pdf", feature = "dox"))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum PdfVersion {
     _1_4,
     _1_5,
@@ -1824,6 +1605,7 @@ impl fmt::Display for PdfVersion {
 
 #[cfg(any(feature = "svg", feature = "dox"))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum SvgVersion {
     _1_1,
     _1_2,
@@ -1872,6 +1654,7 @@ impl fmt::Display for SvgVersion {
 
 #[cfg(any(feature = "ps", feature = "dox"))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum PsLevel {
     _2,
     _3,
@@ -1919,6 +1702,7 @@ impl fmt::Display for PsLevel {
 }
 
 #[derive(Clone, PartialEq, PartialOrd, Copy, Debug)]
+#[non_exhaustive]
 pub enum MeshCorner {
     MeshCorner0,
     MeshCorner1,
@@ -1970,7 +1754,9 @@ impl fmt::Display for MeshCorner {
     }
 }
 
+#[cfg(any(feature = "freetype", feature = "dox"))]
 #[derive(Clone, PartialEq, PartialOrd, Debug, Copy)]
+#[non_exhaustive]
 pub enum FtSynthesize {
     Bold,
     Oblique,
@@ -1978,6 +1764,7 @@ pub enum FtSynthesize {
     __Unknown(u32),
 }
 
+#[cfg(any(feature = "freetype", feature = "dox"))]
 #[doc(hidden)]
 impl Into<ffi::cairo_ft_synthesize_t> for FtSynthesize {
     fn into(self) -> ffi::cairo_ft_synthesize_t {
@@ -1989,6 +1776,7 @@ impl Into<ffi::cairo_ft_synthesize_t> for FtSynthesize {
     }
 }
 
+#[cfg(any(feature = "freetype", feature = "dox"))]
 #[doc(hidden)]
 impl From<ffi::cairo_ft_synthesize_t> for FtSynthesize {
     fn from(value: ffi::cairo_ft_synthesize_t) -> Self {
@@ -2000,6 +1788,7 @@ impl From<ffi::cairo_ft_synthesize_t> for FtSynthesize {
     }
 }
 
+#[cfg(any(feature = "freetype", feature = "dox"))]
 impl fmt::Display for FtSynthesize {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
@@ -2014,7 +1803,9 @@ impl fmt::Display for FtSynthesize {
     }
 }
 
+#[cfg(any(feature = "script", feature = "dox"))]
 #[derive(Clone, PartialEq, PartialOrd, Debug, Copy)]
+#[non_exhaustive]
 pub enum ScriptMode {
     Ascii,
     Binary,
@@ -2022,6 +1813,7 @@ pub enum ScriptMode {
     __Unknown(i32),
 }
 
+#[cfg(any(feature = "script", feature = "dox"))]
 #[doc(hidden)]
 impl Into<ffi::cairo_script_mode_t> for ScriptMode {
     fn into(self) -> ffi::cairo_script_mode_t {
@@ -2033,6 +1825,7 @@ impl Into<ffi::cairo_script_mode_t> for ScriptMode {
     }
 }
 
+#[cfg(any(feature = "script", feature = "dox"))]
 #[doc(hidden)]
 impl From<ffi::cairo_script_mode_t> for ScriptMode {
     fn from(value: ffi::cairo_script_mode_t) -> Self {
@@ -2044,6 +1837,7 @@ impl From<ffi::cairo_script_mode_t> for ScriptMode {
     }
 }
 
+#[cfg(any(feature = "script", feature = "dox"))]
 impl fmt::Display for ScriptMode {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
@@ -2059,6 +1853,7 @@ impl fmt::Display for ScriptMode {
 }
 
 #[derive(Clone, PartialEq, PartialOrd, Debug, Copy)]
+#[non_exhaustive]
 pub enum DeviceType {
     Ascii,
     Binary,

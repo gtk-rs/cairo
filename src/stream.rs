@@ -2,14 +2,16 @@
 // See the COPYRIGHT file at the top-level directory of this distribution.
 // Licensed under the MIT license, see the LICENSE file or <http://opensource.org/licenses/MIT>
 
+use error::Error;
 use ffi::{self, cairo_status_t};
-use {Status, Surface, UserDataKey};
+use {Surface, UserDataKey};
 
 use libc::{c_double, c_uchar, c_uint, c_void};
 use std::any::Any;
 use std::cell::{Cell, RefCell};
 use std::io;
 use std::panic::AssertUnwindSafe;
+use std::ptr;
 use std::rc::Rc;
 
 macro_rules! for_stream_constructors {
@@ -24,7 +26,7 @@ macro_rules! for_stream_constructors {
             width: f64,
             height: f64,
             stream: W,
-        ) -> Result<Self, crate::enums::Status> {
+        ) -> Result<Self, crate::error::Error> {
             Ok(Self(Surface::_for_stream(
                 ffi::$constructor_ffi,
                 width,
@@ -49,7 +51,7 @@ macro_rules! for_stream_constructors {
             width: f64,
             height: f64,
             stream: *mut W,
-        ) -> Result<Self, crate::enums::Status> {
+        ) -> Result<Self, crate::error::Error> {
             Ok(Self(Surface::_for_raw_stream(
                 ffi::$constructor_ffi,
                 width,
@@ -66,7 +68,7 @@ impl Surface {
         width: f64,
         height: f64,
         stream: W,
-    ) -> Result<Self, Status> {
+    ) -> Result<Self, Error> {
         let env_rc = Rc::new(CallbackEnvironment {
             mutable: RefCell::new(MutableCallbackEnvironment {
                 stream: Some((Box::new(stream), None)),
@@ -88,8 +90,13 @@ impl Surface {
         width: f64,
         height: f64,
         stream: *mut W,
-    ) -> Result<Self, Status> {
-        Self::_for_stream(constructor, width, height, RawStream(stream))
+    ) -> Result<Self, Error> {
+        Self::_for_stream(
+            constructor,
+            width,
+            height,
+            RawStream(ptr::NonNull::new(stream).expect("NULL stream passed")),
+        )
     }
 
     /// Finish the surface, then remove and return the output stream if any.
@@ -224,7 +231,7 @@ extern "C" fn write_callback<W: io::Write + 'static>(
             // we must conservatively assume that it can panic.
             let result = std::panic::catch_unwind(AssertUnwindSafe(|| stream.write_all(data)));
             match result {
-                Ok(Ok(())) => return Status::Success.into(),
+                Ok(Ok(())) => return ffi::STATUS_SUCCESS,
                 Ok(Err(error)) => {
                     *io_error = Some(error);
                 }
@@ -236,20 +243,20 @@ extern "C" fn write_callback<W: io::Write + 'static>(
     } else {
         env.saw_already_borrowed.set(true)
     }
-    Status::WriteError.into()
+    Error::WriteError.into()
 }
 
-struct RawStream<W>(*mut W);
+struct RawStream<W>(ptr::NonNull<W>);
 
 impl<W: io::Write> io::Write for RawStream<W> {
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
-        unsafe { (*self.0).write(buf) }
+        unsafe { (*self.0.as_ptr()).write(buf) }
     }
     fn write_all(&mut self, buf: &[u8]) -> io::Result<()> {
-        unsafe { (*self.0).write_all(buf) }
+        unsafe { (*self.0.as_ptr()).write_all(buf) }
     }
     fn flush(&mut self) -> io::Result<()> {
-        unsafe { (*self.0).flush() }
+        unsafe { (*self.0.as_ptr()).flush() }
     }
 }
 

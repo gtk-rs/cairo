@@ -4,9 +4,10 @@ use glib::translate::*;
 use std::ffi::CString;
 use std::ptr;
 
-use enums::{FontType, Status};
+use enums::FontType;
 use ffi::{FontExtents, Glyph, TextCluster, TextExtents};
 use matrices::Matrix;
+use utils::status_to_result;
 
 use super::{FontFace, FontOptions};
 
@@ -24,7 +25,7 @@ glib_wrapper! {
 
 #[cfg(not(feature = "use_glib"))]
 #[derive(Debug)]
-pub struct ScaledFont(*mut ffi::cairo_scaled_font_t);
+pub struct ScaledFont(ptr::NonNull<ffi::cairo_scaled_font_t>);
 
 impl ScaledFont {
     pub fn new(
@@ -41,7 +42,8 @@ impl ScaledFont {
                 options.to_raw_none(),
             ))
         };
-        scaled_font.ensure_status();
+        let status = unsafe { ffi::cairo_scaled_font_status(scaled_font.to_raw_none()) };
+        status_to_result(status).expect("Failed to create a scaled font");
         scaled_font
     }
 
@@ -52,13 +54,13 @@ impl ScaledFont {
 
     #[cfg(not(feature = "use_glib"))]
     pub fn to_raw_none(&self) -> *mut ffi::cairo_scaled_font_t {
-        self.0
+        self.0.as_ptr()
     }
 
     #[cfg(not(feature = "use_glib"))]
     pub unsafe fn from_raw_full(ptr: *mut ffi::cairo_scaled_font_t) -> ScaledFont {
         assert!(!ptr.is_null());
-        ScaledFont(ptr)
+        ScaledFont(ptr::NonNull::new_unchecked(ptr))
     }
 
     #[cfg(feature = "use_glib")]
@@ -75,12 +77,7 @@ impl ScaledFont {
     pub unsafe fn from_raw_none(ptr: *mut ffi::cairo_scaled_font_t) -> ScaledFont {
         assert!(!ptr.is_null());
         ffi::cairo_scaled_font_reference(ptr);
-        ScaledFont(ptr)
-    }
-
-    pub fn ensure_status(&self) {
-        let status = unsafe { ffi::cairo_scaled_font_status(self.to_raw_none()) };
-        Status::from(status).ensure_valid()
+        ScaledFont(ptr::NonNull::new_unchecked(ptr))
     }
 
     pub fn get_type(&self) -> FontType {
@@ -171,8 +168,7 @@ impl ScaledFont {
                 &mut cluster_count,
                 &mut cluster_flags,
             );
-
-            Status::from(status).ensure_valid();
+            status_to_result(status).expect("Failed to convert text to glyphs");
 
             let glyph_count = glyph_count as usize;
             let glyphs: Vec<Glyph> = {

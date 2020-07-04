@@ -36,9 +36,11 @@ impl<T> UserDataKey<T> {
 macro_rules! user_data_methods {
     ($ffi_get_user_data: path, $ffi_set_user_data: path,) => {
         /// Attach user data to `self` for the given `key`.
-        pub fn set_user_data<T: 'static>(&self, key: &'static crate::UserDataKey<T>,
-                                         value: std::rc::Rc<T>)
-        {
+        pub fn set_user_data<T: 'static>(
+            &self,
+            key: &'static crate::UserDataKey<T>,
+            value: std::rc::Rc<T>,
+        ) {
             unsafe extern "C" fn destructor<T>(ptr: *mut libc::c_void) {
                 let ptr: *const T = ptr as _;
                 drop(std::rc::Rc::from_raw(ptr))
@@ -51,16 +53,17 @@ macro_rules! user_data_methods {
             // neither of them touches the reference count.
             let ptr: *const T = std::rc::Rc::into_raw(value);
             let ptr = ptr as *mut T as *mut libc::c_void;
-            let result = unsafe {
+            let status = unsafe {
                 $ffi_set_user_data(self.to_raw_none(), &key.ffi, ptr, Some(destructor::<T>))
             };
-            Status::from(result).ensure_valid()
+            crate::utils::status_to_result(status).expect("Failed to set user data");
         }
 
         /// Return the user data previously attached to `self` with the given `key`, if any.
-        pub fn get_user_data<T: 'static>(&self, key: &'static crate::UserDataKey<T>)
-                                         -> Option<std::rc::Rc<T>>
-        {
+        pub fn get_user_data<T: 'static>(
+            &self,
+            key: &'static crate::UserDataKey<T>,
+        ) -> Option<std::rc::Rc<T>> {
             let ptr = self.get_user_data_ptr(key)?.as_ptr();
 
             // Safety:
@@ -82,9 +85,10 @@ macro_rules! user_data_methods {
         /// The pointer is valid when it is returned from this method,
         /// until the cairo object that `self` represents is destroyed
         /// or `remove_user_data` or `set_user_data` is called with the same key.
-        pub fn get_user_data_ptr<T: 'static>(&self, key: &'static crate::UserDataKey<T>)
-                                             -> Option<std::ptr::NonNull<T>>
-        {
+        pub fn get_user_data_ptr<T: 'static>(
+            &self,
+            key: &'static crate::UserDataKey<T>,
+        ) -> Option<std::ptr::NonNull<T>> {
             // Safety:
             //
             // If `ffi_get_user_data` returns a non-null pointer,
@@ -114,10 +118,10 @@ macro_rules! user_data_methods {
         /// Unattach from `self` the user data associated with `key`, if any.
         /// If there is no other `Rc` strong reference, the data is destroyed.
         pub fn remove_user_data<T: 'static>(&self, key: &'static crate::UserDataKey<T>) {
-            let result = unsafe {
+            let status = unsafe {
                 $ffi_set_user_data(self.to_raw_none(), &key.ffi, std::ptr::null_mut(), None)
             };
-            Status::from(result).ensure_valid()
+            crate::utils::status_to_result(status).expect("Failed to remove user data");
         }
     };
 }

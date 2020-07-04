@@ -53,6 +53,7 @@ pub type cairo_operator_t = c_int;
 pub type cairo_pattern_type_t = c_int;
 pub type cairo_path_data_type_t = c_int;
 pub type cairo_region_overlap_t = c_int;
+#[cfg(any(feature = "script", feature = "dox"))]
 pub type cairo_script_mode_t = c_int;
 pub type cairo_status_t = c_int;
 pub type cairo_subpixel_order_t = c_int;
@@ -740,13 +741,17 @@ extern "C" {
     pub fn cairo_glyph_free(glyphs: *mut Glyph);
     pub fn cairo_text_cluster_allocate(num_clusters: c_int) -> *mut TextCluster;
     pub fn cairo_text_cluster_free(clusters: *mut TextCluster);
+
+    #[cfg(any(feature = "freetype", feature = "dox"))]
     pub fn cairo_ft_font_face_get_synthesize(
         font_face: *mut cairo_font_face_t,
     ) -> cairo_ft_synthesize_t;
+    #[cfg(any(feature = "freetype", feature = "dox"))]
     pub fn cairo_ft_font_face_set_synthesize(
         font_face: *mut cairo_font_face_t,
         synth_flags: cairo_ft_synthesize_t,
     );
+    #[cfg(any(feature = "freetype", feature = "dox"))]
     pub fn cairo_ft_font_face_unset_synthesize(
         font_face: *mut cairo_font_face_t,
         synth_flags: cairo_ft_synthesize_t,
@@ -952,11 +957,25 @@ extern "C" {
     ) -> cairo_status_t;
     pub fn cairo_surface_get_reference_count(surface: *mut cairo_surface_t) -> c_uint;
     pub fn cairo_surface_mark_dirty(surface: *mut cairo_surface_t);
+    pub fn cairo_surface_mark_dirty_rectangle(
+        surface: *mut cairo_surface_t,
+        x: c_int,
+        y: c_int,
+        width: c_int,
+        height: c_int,
+    );
     pub fn cairo_surface_create_similar(
         surface: *mut cairo_surface_t,
         content: cairo_content_t,
         width: c_int,
         height: c_int,
+    ) -> *mut cairo_surface_t;
+    pub fn cairo_surface_create_for_rectangle(
+        surface: *mut cairo_surface_t,
+        x: c_double,
+        y: c_double,
+        width: c_double,
+        height: c_double,
     ) -> *mut cairo_surface_t;
     pub fn cairo_surface_get_mime_data(
         surface: *mut cairo_surface_t,
@@ -976,6 +995,7 @@ extern "C" {
         surface: *mut cairo_surface_t,
         mime_type: *const c_char,
     ) -> cairo_bool_t;
+    pub fn cairo_surface_get_device(surface: *mut cairo_surface_t) -> *mut cairo_device_t;
     pub fn cairo_surface_set_device_offset(
         surface: *mut cairo_surface_t,
         x_offset: c_double,
@@ -1348,27 +1368,35 @@ extern "C" {
     pub fn cairo_quartz_surface_get_cg_context(surface: *mut cairo_surface_t) -> CGContextRef;
 
     // CAIRO SCRIPT
+    #[cfg(any(feature = "script", feature = "dox"))]
     pub fn cairo_script_create(filename: *const c_char) -> *mut cairo_device_t;
+    #[cfg(any(feature = "script", feature = "dox"))]
     pub fn cairo_script_create_for_stream(
         write_func: cairo_write_func_t,
         closure: *mut c_void,
     ) -> cairo_status_t;
+    #[cfg(any(feature = "script", feature = "dox"))]
     pub fn cairo_script_from_recording_surface(
         script: *mut cairo_device_t,
         surface: *mut cairo_surface_t,
     ) -> cairo_status_t;
+    #[cfg(any(feature = "script", feature = "dox"))]
     pub fn cairo_script_get_mode(script: *mut cairo_device_t) -> cairo_script_mode_t;
+    #[cfg(any(feature = "script", feature = "dox"))]
     pub fn cairo_script_set_mode(script: *mut cairo_device_t, mode: cairo_script_mode_t);
+    #[cfg(any(feature = "script", feature = "dox"))]
     pub fn cairo_script_surface_create(
         script: *mut cairo_device_t,
         content: cairo_content_t,
         width: c_double,
         height: c_double,
     ) -> *mut cairo_surface_t;
+    #[cfg(any(feature = "script", feature = "dox"))]
     pub fn cairo_script_surface_create_for_target(
         script: *mut cairo_device_t,
         target: *mut cairo_surface_t,
     ) -> *mut cairo_surface_t;
+    #[cfg(any(feature = "script", feature = "dox"))]
     pub fn cairo_script_write_comment(
         script: *mut cairo_device_t,
         comment: *const c_char,

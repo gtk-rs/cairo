@@ -8,8 +8,11 @@ use std::hash;
 use font::font_face::to_optional_string;
 #[cfg(any(feature = "v1_16", feature = "dox"))]
 use std::ffi::CString;
+#[cfg(not(feature = "use_glib"))]
+use std::ptr;
 
-use enums::{Antialias, HintMetrics, HintStyle, Status, SubpixelOrder};
+use enums::{Antialias, HintMetrics, HintStyle, SubpixelOrder};
+use utils::status_to_result;
 
 #[cfg(feature = "use_glib")]
 glib_wrapper! {
@@ -20,7 +23,7 @@ glib_wrapper! {
         copy => |ptr| {
             let ptr = ffi::cairo_font_options_copy(ptr);
             let status = ffi::cairo_font_options_status(ptr);
-            Status::from(status).ensure_valid();
+            status_to_result(status).expect("Failed to create a copy of FontOptions");
             ptr
         },
         free => |ptr| ffi::cairo_font_options_destroy(ptr),
@@ -30,13 +33,16 @@ glib_wrapper! {
 
 #[cfg(not(feature = "use_glib"))]
 #[derive(Debug)]
-pub struct FontOptions(*mut ffi::cairo_font_options_t);
+pub struct FontOptions(ptr::NonNull<ffi::cairo_font_options_t>);
 
 impl FontOptions {
     pub fn new() -> FontOptions {
         let font_options: FontOptions =
             unsafe { FontOptions::from_raw_full(ffi::cairo_font_options_create()) };
-        font_options.ensure_status();
+
+        let status = unsafe { ffi::cairo_font_options_status(font_options.to_raw_none()) };
+        status_to_result(status).expect("Failed to create a font option");
+
         font_options
     }
 
@@ -48,7 +54,7 @@ impl FontOptions {
     #[cfg(not(feature = "use_glib"))]
     pub unsafe fn from_raw_full(ptr: *mut ffi::cairo_font_options_t) -> FontOptions {
         assert!(!ptr.is_null());
-        FontOptions(ptr)
+        FontOptions(ptr::NonNull::new_unchecked(ptr))
     }
 
     #[cfg(feature = "use_glib")]
@@ -58,12 +64,7 @@ impl FontOptions {
 
     #[cfg(not(feature = "use_glib"))]
     pub fn to_raw_none(&self) -> *mut ffi::cairo_font_options_t {
-        self.0
-    }
-
-    pub fn ensure_status(&self) {
-        let status = unsafe { ffi::cairo_font_options_status(self.to_raw_none()) };
-        Status::from(status).ensure_valid()
+        self.0.as_ptr()
     }
 
     pub fn merge(&mut self, other: &FontOptions) {

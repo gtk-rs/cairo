@@ -8,19 +8,20 @@ use std::rc::Rc;
 use std::slice;
 
 use enums::{Format, SurfaceType};
+use error::Error;
 use ffi;
 #[cfg(feature = "use_glib")]
 use glib::translate::*;
 
 use std::fmt;
 use surface::Surface;
+use utils::status_to_result;
 use BorrowError;
-use Status;
 
 declare_surface!(ImageSurface, SurfaceType::Image);
 
 impl ImageSurface {
-    pub fn create(format: Format, width: i32, height: i32) -> Result<ImageSurface, Status> {
+    pub fn create(format: Format, width: i32, height: i32) -> Result<ImageSurface, Error> {
         unsafe {
             Self::from_raw_full(ffi::cairo_image_surface_create(
                 format.into(),
@@ -36,7 +37,7 @@ impl ImageSurface {
         width: i32,
         height: i32,
         stride: i32,
-    ) -> Result<ImageSurface, Status> {
+    ) -> Result<ImageSurface, Error> {
         let mut data: Box<dyn AsMut<[u8]>> = Box::new(data);
 
         let (ptr, len) = {
@@ -68,16 +69,35 @@ impl ImageSurface {
             if ffi::cairo_surface_get_reference_count(self.to_raw_none()) > 1 {
                 return Err(BorrowError::NonExclusive);
             }
+
             self.flush();
-            match self.status() {
-                Status::Success => (),
-                status => return Err(BorrowError::from(status)),
+            let status = ffi::cairo_surface_status(self.to_raw_none());
+            if let Some(err) = status_to_result(status).err() {
+                return Err(BorrowError::from(err));
             }
-            if ffi::cairo_image_surface_get_data(self.to_raw_none()).is_null() {
-                return Err(BorrowError::from(Status::SurfaceFinished));
+            if ffi::cairo_image_surface_get_data(self.to_raw_none()).is_null() || is_finished(self)
+            {
+                return Err(BorrowError::from(Error::SurfaceFinished));
             }
             Ok(ImageSurfaceData::new(self))
         }
+    }
+
+    pub fn with_data<F: FnOnce(&[u8])>(&self, f: F) -> Result<(), BorrowError> {
+        self.flush();
+        unsafe {
+            let status = ffi::cairo_surface_status(self.to_raw_none());
+            if let Some(err) = status_to_result(status).err() {
+                return Err(BorrowError::from(err));
+            }
+            let ptr = ffi::cairo_image_surface_get_data(self.to_raw_none());
+            if ptr.is_null() || is_finished(self) {
+                return Err(BorrowError::from(Error::SurfaceFinished));
+            }
+            let len = self.get_height() as usize * self.get_stride() as usize;
+            f(slice::from_raw_parts(ptr, len));
+        }
+        Ok(())
     }
 
     pub fn get_format(&self) -> Format {
@@ -122,7 +142,7 @@ impl<'a> ImageSurfaceData<'a> {
 impl<'a> Drop for ImageSurfaceData<'a> {
     fn drop(&mut self) {
         if self.dirty {
-            unsafe { ffi::cairo_surface_mark_dirty(self.surface.to_raw_none()) }
+            self.surface.mark_dirty()
         }
     }
 }
@@ -148,6 +168,14 @@ impl<'a> fmt::Display for ImageSurfaceData<'a> {
     }
 }
 
+// Workaround for cairo not having a direct way to check if the surface is finished.
+// See: https://gitlab.freedesktop.org/cairo/cairo/-/issues/406
+fn is_finished(surface: &ImageSurface) -> bool {
+    use super::Context;
+    let ctxt = Context::new(surface);
+    ctxt.status().is_err()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -171,5 +199,14 @@ mod tests {
 
         let result = ImageSurface::create_for_data(vec![0u8; 40 * 10], Format::ARgb32, 10, 10, 40);
         assert!(result.is_ok());
+    }
+
+    #[test]
+    fn no_crash_after_finish() {
+        let mut surf = ImageSurface::create(Format::ARgb32, 1024, 1024).unwrap();
+
+        surf.finish();
+
+        assert!(surf.get_data().is_err());
     }
 }
